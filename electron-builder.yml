@@ -1,0 +1,23 @@
+appId: ai.9router.desktop
+productName: 9Router
+directories:
+  output: dist-electron
+  buildResources: electron
+files:
+  - electron/**/*
+  - package.json
+extraResources:
+  - from: .next-cli-build/standalone
+    to: app
+asar: true
+npmRebuild: false
+buildDependenciesFromSource: false
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+  # Cross-building on Linux: skip wine/rcedit (no icon/version resources embedded).
+  signAndEditExecutable: false
+portable:
+  artifactName: 9Router-${version}-portable.exe
