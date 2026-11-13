@@ -139,7 +139,7 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
     targetFormat === FORMATS.KIRO &&
     (sourceFormat === FORMATS.OPENAI || sourceFormat === FORMATS.CLAUDE);
   if (!kiroThinkingMappedByTranslator) {
-    applyThinking(targetFormat, model, result, provider, thinkingIntent);
+    applyThinking(targetFormat, model, result, provider, thinkingIntent, credentials?.providerSpecificData?.thinkingFormat);
   }
 
   // Always normalize to clean OpenAI format when target is OpenAI

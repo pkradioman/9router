@@ -131,8 +131,13 @@ const NATIVE_ONLY_FORMATS = new Set(["gemini-level", "gemini-budget", "claude-bu
 // DeepSeek ignores it. Only dynamic compat nodes opt into the passthrough.
 const isOpenAICompatibleNode = (provider) => String(provider || "").startsWith("openai-compatible-");
 
-function resolveFormat(targetFormat, model, provider) {
+function resolveFormat(targetFormat, model, provider, providerThinkingFormat = null) {
   if (targetFormat === "commandcode") return "commandcode";
+  // A connection can declare the thinking shape its upstream actually accepts
+  // (providerSpecificData.thinkingFormat). Custom OpenAI-compatible nodes that
+  // proxy a strict API need this: the model-name capability patterns describe
+  // the Chat wire of the model family, not the host that serves it.
+  if (providerThinkingFormat) return providerThinkingFormat;
   // A multi-endpoint provider can declare, per transports[] entry, the thinking shape that
   // endpoint accepts. It wins over the model's thinkingFormat, which describes the Chat wire:
   // strict /responses upstreams (Meta, OpenCode Go) reject Chat-shaped reasoning_effort /
@@ -450,7 +455,7 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels, display, model = "",
 // Mutates and returns body. No-op when model has no reasoning capability.
 // `intent` is a pre-captured config (from captureThinking on the original body);
 // falls back to extracting from the current body when omitted.
-export function applyThinking(targetFormat, model, body, provider = null, intent = undefined) {
+export function applyThinking(targetFormat, model, body, provider = null, intent = undefined, thinkingFormat = null) {
   if (!body || typeof body !== "object") return body;
 
   const { cleanModel, override } = parseSuffix(model);
@@ -464,7 +469,7 @@ export function applyThinking(targetFormat, model, body, provider = null, intent
   }
   if (!cfg) return body;
 
-  const fmt = resolveFormat(targetFormat, cleanModel, provider);
+  const fmt = resolveFormat(targetFormat, cleanModel, provider, thinkingFormat);
   const supportedLevels = getThinkingLevels(provider, cleanModel);
   // Anthropic's `display` (summarized | omitted) decides whether thinking text
   // comes back at all; keep what the client asked for instead of resetting it.
