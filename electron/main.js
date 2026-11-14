@@ -7,8 +7,8 @@ const PREFERRED_PORT = 20128;
 const HEALTH_TIMEOUT_MS = 60_000;
 
 const serverDir = app.isPackaged
-  ? path.join(process.resourcesPath, "app")
-  : path.join(__dirname, "..", "desktop-app");
+  ? path.join(process.resourcesPath, "app", "runtime")
+  : path.join(__dirname, "..", "desktop-app", "runtime");
 
 // Chromium writes Cache/GPUCache/Local Storage next to userData; keep that out
 // of the gateway's data dir (%APPDATA%\9router), which the CLI also owns. The

@@ -10,18 +10,22 @@ import { join } from "node:path";
 const root = process.cwd();
 const distDir = process.env.NEXT_DIST_DIR || "desktop-dist";
 const standalone = join(root, distDir, "standalone");
-const stage = join(root, "desktop-app");
+const stageRoot = join(root, "desktop-app");
+// electron-builder filters out a root-level `node_modules` in extraResources
+// (out/util/filter.js: `if (relative === "node_modules") return false`), so the
+// runtime tree lives one level down and keeps its module directory.
+const stage = join(stageRoot, "runtime");
 
 if (!existsSync(standalone)) {
   console.error(`[desktop] no standalone build at ${standalone}; run "npm run build" with NEXT_DIST_DIR=${distDir} first`);
   process.exit(1);
 }
 
-rmSync(stage, { recursive: true, force: true });
+rmSync(stageRoot, { recursive: true, force: true });
 mkdirSync(stage, { recursive: true });
 
 cpSync(standalone, stage, { recursive: true, dereference: true });
-console.log(`[desktop] staged standalone -> desktop-app`);
+console.log(`[desktop] staged standalone -> desktop-app/runtime`);
 
 // The standalone output omits these because Next traces only what it imports
 // statically; the gateway loads them at runtime.
