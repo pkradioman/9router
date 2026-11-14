@@ -57,7 +57,9 @@ function startServer(p) {
   // DATA_DIR is left alone so the desktop app shares %APPDATA%\9router with the CLI.
   process.env.NODE_ENV = "production";
   process.env.PORT = String(p);
-  process.env.HOSTNAME = "127.0.0.1";
+  // Bind all interfaces like the CLI launcher does (DEFAULT_HOST = 0.0.0.0);
+  // LAN clients point at this gateway, so 127.0.0.1 would silently cut them off.
+  process.env.HOSTNAME = "0.0.0.0";
   try {
     require(path.join(serverDir, "server.js"));
     logLine("server require ok", `port=${p}`, `dir=${serverDir}`);
