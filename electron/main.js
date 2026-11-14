@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Tray, Menu, shell, nativeImage } = require("electron");
+const { app, BrowserWindow, Tray, Menu, shell, nativeImage, dialog } = require("electron");
+const fs = require("node:fs");
 const path = require("node:path");
 const net = require("node:net");
 
@@ -7,7 +8,24 @@ const HEALTH_TIMEOUT_MS = 60_000;
 
 const serverDir = app.isPackaged
   ? path.join(process.resourcesPath, "app")
-  : path.join(__dirname, "..", ".next-cli-build", "standalone");
+  : path.join(__dirname, "..", "desktop-app");
+
+// Chromium writes Cache/GPUCache/Local Storage next to userData; keep that out
+// of the gateway's data dir (%APPDATA%\9router), which the CLI also owns. The
+// gateway resolves its own DATA_DIR from APPDATA, so the DB stays shared.
+app.setPath("userData", path.join(app.getPath("appData"), "9router", "desktop"));
+
+function logLine(...parts) {
+  try {
+    fs.appendFileSync(path.join(app.getPath("userData"), "desktop.log"), `${new Date().toISOString()} ${parts.join(" ")}\n`);
+  } catch {}
+}
+
+process.on("uncaughtException", (err) => {
+  logLine("uncaughtException", err && (err.stack || err.message || String(err)));
+  dialog.showErrorBox("9Router", String(err && (err.stack || err.message || err)));
+  app.exit(1);
+});
 
 let win = null;
 let tray = null;
@@ -40,7 +58,13 @@ function startServer(p) {
   process.env.NODE_ENV = "production";
   process.env.PORT = String(p);
   process.env.HOSTNAME = "127.0.0.1";
-  require(path.join(serverDir, "server.js"));
+  try {
+    require(path.join(serverDir, "server.js"));
+    logLine("server require ok", `port=${p}`, `dir=${serverDir}`);
+  } catch (err) {
+    logLine("server require failed", err && (err.stack || err.message));
+    throw err;
+  }
 }
 
 async function waitForHealth(p, deadline) {
@@ -101,14 +125,20 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     port = await pickPort();
-    startServer(port);
-    const healthy = await waitForHealth(port, Date.now() + HEALTH_TIMEOUT_MS);
-    if (!healthy) {
-      const { dialog } = require("electron");
-      dialog.showErrorBox("9Router", `The gateway did not start on port ${port}.`);
+    try {
+      startServer(port);
+    } catch (err) {
+      dialog.showErrorBox("9Router", `The gateway failed to load:\n\n${err && (err.stack || err.message)}`);
       quitting = true;
       return app.quit();
     }
+    const healthy = await waitForHealth(port, Date.now() + HEALTH_TIMEOUT_MS);
+    if (!healthy) {
+      dialog.showErrorBox("9Router", `The gateway did not start on port ${port}. See desktop.log in ${app.getPath("userData")}.`);
+      quitting = true;
+      return app.quit();
+    }
+    logLine("healthy", `port=${port}`);
     createWindow();
     createTray();
 
@@ -116,6 +146,11 @@ if (!app.requestSingleInstanceLock()) {
       if (!win) createWindow();
       else win.show();
     });
+  }).catch((err) => {
+    logLine("whenReady failed", err && (err.stack || err.message));
+    dialog.showErrorBox("9Router", String(err && (err.stack || err.message || err)));
+    quitting = true;
+    app.quit();
   });
 
   // Keep running in the tray when the window closes.

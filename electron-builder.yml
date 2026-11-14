@@ -6,8 +6,11 @@ directories:
 files:
   - electron/**/*
   - package.json
+  # The gateway runtime ships as extraResources (desktop-app -> resources/app);
+  # packing the project's own node_modules into the asar would double its size.
+  - "!node_modules/**/*"
 extraResources:
-  - from: .next-cli-build/standalone
+  - from: desktop-app
     to: app
 asar: true
 npmRebuild: false

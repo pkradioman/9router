@@ -19,7 +19,7 @@
     "cli:pack": "npm --prefix cli run pack:cli",
     "cli:publish": "npm --prefix cli run publish:cli",
     "desktop:prepare": "node scripts/desktop-prepare.mjs",
-    "desktop:build": "npm run desktop:prepare && electron-builder --win portable --config electron-builder.yml"
+    "desktop:build": "node scripts/desktop-build.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
