@@ -16,6 +16,7 @@ asar: true
 npmRebuild: false
 buildDependenciesFromSource: false
 win:
+  icon: electron/icon.ico
   target:
     - target: portable
       arch:

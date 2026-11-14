@@ -84,11 +84,18 @@ async function waitForHealth(p, deadline) {
   return false;
 }
 
+function appIconPath() {
+  // Windows takes the multi-size .ico for both the window and the tray; other
+  // platforms get the 512px PNG.
+  return path.join(__dirname, process.platform === "win32" ? "icon.ico" : "icon.png");
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1280,
     height: 840,
     show: false,
+    icon: appIconPath(),
     backgroundColor: "#0b0b0c",
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
@@ -103,8 +110,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, "icon.png");
-  const icon = nativeImage.createFromPath(iconPath);
+  const icon = nativeImage.createFromPath(appIconPath());
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip(`9Router — port ${port}`);
   const menu = Menu.buildFromTemplate([
