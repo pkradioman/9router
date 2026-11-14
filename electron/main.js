@@ -61,6 +61,10 @@ function startServer(p) {
   // LAN clients point at this gateway, so 127.0.0.1 would silently cut them off.
   process.env.HOSTNAME = "0.0.0.0";
   try {
+    // custom-server.js wraps http.createServer to stamp the real peer address and
+    // its proof token; without it every request looks remote, which makes the
+    // dashboard reject the default password and rate-limits on the wrong key.
+    require(path.join(serverDir, "custom-server.js"));
     require(path.join(serverDir, "server.js"));
     logLine("server require ok", `port=${p}`, `dir=${serverDir}`);
   } catch (err) {
