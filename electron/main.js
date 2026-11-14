@@ -110,7 +110,10 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(appIconPath());
+  const iconFile = appIconPath();
+  const icon = nativeImage.createFromPath(iconFile);
+  const size = icon.isEmpty() ? null : icon.getSize();
+  logLine("tray icon", iconFile, size ? `${size.width}x${size.height}` : "EMPTY");
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip(`9Router — port ${port}`);
   const menu = Menu.buildFromTemplate([
