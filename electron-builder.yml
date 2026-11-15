@@ -28,6 +28,7 @@ win:
   # Building on Windows overrides this to true, so the exe carries icon + metadata.
   signAndEditExecutable: false
 nsis:
+  include: electron/installer.nsh
   # Per-user install in %LOCALAPPDATA%\Programs: no admin prompt, no UAC.
   oneClick: false
   perMachine: false
