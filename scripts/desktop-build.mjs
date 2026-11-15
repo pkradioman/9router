@@ -16,4 +16,11 @@ function run(cmd, args) {
 
 run("npm", ["run", "build"]);
 run(process.execPath, ["scripts/desktop-prepare.mjs"]);
+
+// Packaging can run on either host. On Windows it is preferred: rcedit embeds
+// the icon and version metadata into the exe, which needs wine on Linux.
+if (process.argv.includes("--stage-only")) {
+  console.log("[desktop] staged desktop-app (skipped packaging)");
+  process.exit(0);
+}
 run("npx", ["electron-builder", "--win", "portable", "--config", "electron-builder.yml"]);

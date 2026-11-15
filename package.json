@@ -22,6 +22,7 @@
     "cli:publish": "npm --prefix cli run publish:cli",
     "desktop:prepare": "node scripts/desktop-prepare.mjs",
     "desktop:build": "node scripts/desktop-build.mjs",
+    "desktop:stage": "node scripts/desktop-build.mjs --stage-only",
     "desktop:pack:win": "electron-builder --win nsis portable --config electron-builder.yml -c.win.signAndEditExecutable=true"
   },
   "dependencies": {
