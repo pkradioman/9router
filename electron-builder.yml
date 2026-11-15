@@ -18,10 +18,26 @@ buildDependenciesFromSource: false
 win:
   icon: electron/icon.ico
   target:
+    - target: nsis
+      arch:
+        - x64
     - target: portable
       arch:
         - x64
   # Cross-building on Linux: skip wine/rcedit (no icon/version resources embedded).
+  # Building on Windows overrides this to true, so the exe carries icon + metadata.
   signAndEditExecutable: false
+nsis:
+  # Per-user install in %LOCALAPPDATA%\Programs: no admin prompt, no UAC.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 9Router
+  # %APPDATA%\9router holds the gateway database (connections, keys); an
+  # uninstall must not take the user's data with it.
+  deleteAppDataOnUninstall: false
+  artifactName: 9Router-${version}-setup.exe
 portable:
   artifactName: 9Router-${version}-portable.exe
