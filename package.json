@@ -2,6 +2,8 @@
   "name": "9router-app",
   "version": "0.5.119",
   "description": "9Router web dashboard",
+  "author": "pkradioman",
+  "copyright": "Copyright © 2026 pkradioman",
   "private": true,
   "engines": {
     "node": ">=20.18.1"
