@@ -109,7 +109,9 @@ function createWindow() {
   win.loadURL(`http://127.0.0.1:${port}/dashboard`);
   win.once("ready-to-show", () => win.show());
   win.on("close", (event) => {
-    if (quitting) return;
+    // Hide to the tray only when there is a tray to restore from; otherwise the
+    // window would become unreachable with no way to quit.
+    if (quitting || !tray) return;
     event.preventDefault();
     win.hide();
   });
@@ -129,10 +131,43 @@ function createTray() {
     { type: "separator" },
     { label: "Auto-start at login", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, openAsHidden: true }) },
     { type: "separator" },
-    { label: "Quit 9Router", click: () => { quitting = true; app.quit(); } },
+    { label: "Quit 9Router", click: quit },
   ]);
-  tray.setContextMenu(menu);
+  // Drive the menu from our own click handlers instead of relying on the
+  // platform default: on Windows the default path is tied to the tray's owner
+  // window and silently does nothing when that window is not in the foreground.
+  // popUpContextMenu works regardless.
+  tray.on("right-click", () => tray.popUpContextMenu(menu));
+  tray.on("click", () => tray.popUpContextMenu(menu));
   tray.on("double-click", () => { if (win) { win.show(); win.focus(); } else createWindow(); });
+  logLine("tray ready", `port=${port}`);
+}
+
+function quit() {
+  quitting = true;
+  app.quit();
+}
+
+// The window has no menu bar (autoHideMenuBar), but its accelerators stay live,
+// so Ctrl+Q always quits even if the tray is unreachable.
+function createAppMenu() {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: "File",
+        submenu: [{ label: "Quit 9Router", accelerator: "CmdOrCtrl+Q", click: quit }],
+      },
+      {
+        label: "View",
+        submenu: [
+          { role: "reload" },
+          { role: "toggleDevTools" },
+          { type: "separator" },
+          { role: "togglefullscreen" },
+        ],
+      },
+    ])
+  );
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -160,6 +195,7 @@ if (!app.requestSingleInstanceLock()) {
       return app.quit();
     }
     logLine("healthy", `port=${port}`);
+    createAppMenu();
     createWindow();
     createTray();
 
