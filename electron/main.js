@@ -137,9 +137,23 @@ function createTray() {
   // platform default: on Windows the default path is tied to the tray's owner
   // window and silently does nothing when that window is not in the foreground.
   // popUpContextMenu works regardless.
-  tray.on("right-click", () => tray.popUpContextMenu(menu));
-  tray.on("click", () => tray.popUpContextMenu(menu));
-  tray.on("double-click", () => { if (win) { win.show(); win.focus(); } else createWindow(); });
+  //
+  // The single-click path is debounced so a double-click does not open the menu
+  // under the cursor and have its second half land on a menu item (Quit sits
+  // nearest the tray). Double-click still restores the window.
+  let clickTimer = null;
+  tray.on("click", () => {
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => tray.popUpContextMenu(menu), 260);
+  });
+  tray.on("right-click", () => {
+    clearTimeout(clickTimer);
+    tray.popUpContextMenu(menu);
+  });
+  tray.on("double-click", () => {
+    clearTimeout(clickTimer);
+    if (win) { win.show(); win.focus(); } else createWindow();
+  });
   logLine("tray ready", `port=${port}`);
 }
 
