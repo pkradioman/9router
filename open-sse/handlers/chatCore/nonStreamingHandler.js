@@ -12,6 +12,7 @@ import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, sav
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
 import { restoreToolNames } from "../../utils/opencodeFingerprint.js";
+import { normalizeOpenAIChatResponse } from "../../utils/contentChunks.js";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
 
 /**
@@ -269,6 +270,10 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   // bare OpenAI body and usage tracking sees data.usage. No-op unless the
   // provider opts in via transport.quirks.clineEnvelope.
   responseBody = unwrapClineEnvelope(responseBody, provider);
+
+  // Mistral (thinking on) returns message.content as typed chunks
+  // ([{type:"thinking"...},{type:"text",...}]); OpenAI clients expect a string.
+  normalizeOpenAIChatResponse(responseBody);
 
   reqLogger.logProviderResponse(providerResponse.status, providerResponse.statusText, providerResponse.headers, responseBody);
   if (onRequestSuccess) {

@@ -8,6 +8,7 @@ import { PROVIDERS } from "../../config/providers.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
 import { extractReasoningText } from "../../translator/concerns/reasoning.js";
+import { flattenContentChunks } from "../../utils/contentChunks.js";
 
 // Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
 const isResponsesProvider = (p) => PROVIDERS[p]?.format === FORMATS.OPENAI_RESPONSES;
@@ -141,7 +142,15 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
   for (const chunk of chunks) {
     const choice = chunk?.choices?.[0];
     const delta = choice?.delta || {};
-    if (typeof delta.content === "string" && delta.content.length > 0) contentParts.push(delta.content);
+    // Mistral returns content as typed chunks when thinking is on; the string
+    // test below would silently drop the answer.
+    const flatContent = flattenContentChunks(delta.content);
+    if (flatContent) {
+      if (flatContent.text.length > 0) contentParts.push(flatContent.text);
+      if (flatContent.reasoning.length > 0) reasoningParts.push(flatContent.reasoning);
+    } else if (typeof delta.content === "string" && delta.content.length > 0) {
+      contentParts.push(delta.content);
+    }
     // Vendor aliases (`reasoning`, `reasoning_details[]`) count as reasoning too:
     // without this an alias lane's thinking is silently dropped before the
     // empty-content rescue below could keep it.

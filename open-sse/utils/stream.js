@@ -6,6 +6,7 @@ import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb.js";
 import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE, ensureStreamToolCallIds } from "./streamHelpers.js";
 import { restoreToolNames } from "./opencodeFingerprint.js";
+import { normalizeOpenAIChatChunk } from "./contentChunks.js";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
 
@@ -255,6 +256,13 @@ export function createSSEStream(options = {}) {
                 }
               }
 
+              // Mistral returns `delta.content` as an array of typed chunks when
+              // thinking is on. OpenAI clients reject that shape outright, so
+              // flatten it to content + reasoning_content before the check.
+              if (normalizeOpenAIChatChunk(parsed)) {
+                fieldsInjected = true;
+              }
+
               if (!hasValuableContent(parsed, FORMATS.OPENAI)) {
                 continue;
               }
@@ -322,6 +330,11 @@ export function createSSEStream(options = {}) {
 
         const parsed = parseSSELine(trimmed, targetFormat);
         if (!parsed) continue;
+
+        // Same shape fix for the translate path: a Claude/Responses client
+        // routed to a thinking-enabled Mistral would otherwise receive the
+        // content-chunk array as text.
+        if (targetFormat === FORMATS.OPENAI) normalizeOpenAIChatChunk(parsed);
 
         // Responses API same-format passthrough: preserve event framing + track terminal state
         const isOpenAIResponsesStream = targetFormat === FORMATS.OPENAI_RESPONSES;
