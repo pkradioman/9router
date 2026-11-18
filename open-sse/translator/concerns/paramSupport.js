@@ -74,10 +74,32 @@ function clampNumber(body, key, ceiling) {
 }
 
 // Remove unsupported params from body in place; returns body.
-export function stripUnsupportedParams(provider, model, body) {
+//
+// `credentials` is optional and only used to infer the upstream when the
+// provider id is a generic OpenAI-compatible node: a custom connection pointing
+// at api.mistral.ai must follow the same strictness rules as the built-in
+// `mistral` provider, otherwise it is the one path that re-sends vendor fields
+// the upstream rejects (422 extra_forbidden on assistant.reasoning_content).
+function upstreamHints(credentials) {
+  const raw = credentials?.providerSpecificData?.baseUrl || credentials?.baseUrl || "";
+  if (!raw) return new Set();
+  let host;
+  try {
+    host = new URL(String(raw)).hostname.toLowerCase();
+  } catch {
+    return new Set();
+  }
+  const hints = new Set([host]);
+  const label = host.replace(/^(api|www|api\d*)\./, "").split(".")[0];
+  if (label) hints.add(label);
+  return hints;
+}
+
+export function stripUnsupportedParams(provider, model, body, credentials) {
   if (!model || !body || typeof body !== "object") return body;
+  const hints = upstreamHints(credentials);
   for (const rule of STRIP_RULES) {
-    if (rule.provider && rule.provider !== provider) continue;
+    if (rule.provider && rule.provider !== provider && !hints.has(rule.provider)) continue;
     if (!matches(rule, model)) continue;
     // Rename params (keeps an explicit target value if the client already sent one).
     for (const [from, to] of Object.entries(rule.renameParams || {})) {

@@ -185,3 +185,45 @@ describe("stripUnsupportedParams", () => {
     expect(body).toEqual({ max_tokens: 50 });
   });
 });
+
+describe("stripUnsupportedParams upstream hint for custom OpenAI-compatible nodes", () => {
+  const strictBody = () => ({
+    messages: [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "hello", reasoning_content: "thought", reasoning_details: [{ type: "text" }] },
+      { role: "user", content: "again" },
+    ],
+  });
+
+  it("strips echoed reasoning when a custom node points at Mistral", () => {
+    const body = strictBody();
+    stripUnsupportedParams("openai-compatible-chat-b76bf268", "deepseek-v4-1-flash-1017", body, {
+      providerSpecificData: { baseUrl: "https://api.mistral.ai/v1" },
+    });
+    expect(body.messages[1].reasoning_content).toBeUndefined();
+    expect(body.messages[1].reasoning_details).toBeUndefined();
+    expect(body.messages[1].content).toBe("hello");
+  });
+
+  it("uses credentials.baseUrl when providerSpecificData has none", () => {
+    const body = strictBody();
+    stripUnsupportedParams("openai-compatible-chat-x", "some-model", body, { baseUrl: "https://api.groq.com/openai/v1" });
+    expect(body.messages[1].reasoning_content).toBeUndefined();
+  });
+
+  it("keeps reasoning for upstreams that accept it", () => {
+    const body = strictBody();
+    stripUnsupportedParams("openai-compatible-chat-y", "deepseek-chat", body, {
+      providerSpecificData: { baseUrl: "https://api.deepseek.com/v1" },
+    });
+    expect(body.messages[1].reasoning_content).toBe("thought");
+  });
+
+  it("ignores an unparseable baseUrl instead of throwing", () => {
+    const body = strictBody();
+    expect(() =>
+      stripUnsupportedParams("openai-compatible-chat-z", "m", body, { providerSpecificData: { baseUrl: "not a url" } })
+    ).not.toThrow();
+    expect(body.messages[1].reasoning_content).toBe("thought");
+  });
+});
