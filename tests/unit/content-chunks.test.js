@@ -24,6 +24,16 @@ describe("content chunk normalization", () => {
   it("returns null for string content so callers keep their fast path", () => {
     expect(flattenContentChunks("hello")).toBeNull();
     expect(flattenContentChunks(null)).toBeNull();
+    expect(flattenContentChunks([])).toBeNull();
+  });
+
+  it("leaves arrays with part types it does not understand untouched", () => {
+    const parts = [{ type: "image_url", image_url: { url: "data:image/png;base64,xx" } }];
+    expect(flattenContentChunks(parts)).toBeNull();
+
+    const chunk = { choices: [{ index: 0, delta: { content: parts }, finish_reason: null }] };
+    expect(normalizeOpenAIChatChunk(chunk)).toBe(false);
+    expect(chunk.choices[0].delta.content).toBe(parts);
   });
 
   it("turns a streamed content array into content + reasoning_content and drops response_error", () => {

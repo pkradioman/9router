@@ -22,20 +22,36 @@ function collectText(value) {
   return out;
 }
 
-// Returns { text, reasoning } when `content` is a chunk array, else null.
+// Returns { text, reasoning } when `content` is a chunk array we fully
+// understand, else null (caller leaves the value untouched).
+//
+// Only Mistral's typed text/thinking chunks are converted. An array carrying
+// any other part type is a vendor extension this module does not know how to
+// flatten, so it is passed through rather than collapsed - dropping an
+// unrecognised part would silently lose data.
+function hasText(value) {
+  if (typeof value === "string") return true;
+  return Array.isArray(value) &&
+    value.every((p) => typeof p === "string" || (p && typeof p === "object" && typeof p.text === "string"));
+}
+
+function isTextOrThinkingChunk(part) {
+  if (!part || typeof part !== "object") return false;
+  if (part.type === "text") return hasText(part.text);
+  if (part.type === "thinking") return hasText(part.thinking ?? part.text);
+  return false;
+}
+
 export function flattenContentChunks(content) {
-  if (!Array.isArray(content)) return null;
+  if (!Array.isArray(content) || content.length === 0) return null;
+  if (!content.every(isTextOrThinkingChunk)) return null;
   let text = "";
   let reasoning = "";
   for (const part of content) {
-    if (!part || typeof part !== "object") continue;
     if (part.type === "thinking") {
       reasoning += collectText(part.thinking ?? part.text);
-    } else if (part.type === "text") {
+    } else {
       text += collectText(part.text);
-    } else if (typeof part.text === "string") {
-      // Unrecognized part type that still carries text (e.g. "output_text").
-      text += part.text;
     }
   }
   return { text, reasoning };
