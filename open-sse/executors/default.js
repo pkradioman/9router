@@ -109,10 +109,14 @@ export class DefaultExecutor extends BaseExecutor {
       if (this.config.quirks?.dropClientMetadata) {
         delete transformed.client_metadata;
       }
-      stripUnsupportedParams(this.provider, model, transformed, credentials);
     }
 
-    return injectReasoningContent({ provider: this.provider, model, body: transformed });
+    // Injection must run first: it adds a `reasoning_content` placeholder for
+    // deepseek/kimi model names, and strict upstreams (Mistral, Groq) reject that
+    // field outright with 422 extra_forbidden. Stripping before injection is a
+    // no-op, because the injector puts the field straight back.
+    const withReasoning = injectReasoningContent({ provider: this.provider, model, body: transformed });
+    return stripUnsupportedParams(this.provider, model, withReasoning, credentials);
   }
 
   applyNousAttribution(model, body, stream, credentials) {

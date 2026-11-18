@@ -227,3 +227,31 @@ describe("stripUnsupportedParams upstream hint for custom OpenAI-compatible node
     expect(body.messages[1].reasoning_content).toBe("thought");
   });
 });
+
+describe("DefaultExecutor.transformRequest ordering", () => {
+  const messages = [
+    { role: "user", content: "hi" },
+    { role: "assistant", content: "hello" },
+    { role: "user", content: "again" },
+  ];
+
+  it("does not send the injected reasoning placeholder to a strict custom upstream", () => {
+    const executor = new DefaultExecutor("openai-compatible-chat-b76bf268");
+    const out = executor.transformRequest("deepseek-v4-1-flash-1017", { messages }, false, {
+      apiKey: "k",
+      providerSpecificData: { baseUrl: "https://api.mistral.ai/v1" },
+    });
+    for (const m of out.messages) {
+      if (m.role === "assistant") expect(m.reasoning_content).toBeUndefined();
+    }
+  });
+
+  it("keeps the placeholder for upstreams that require it", () => {
+    const executor = new DefaultExecutor("openai-compatible-chat-deepseek");
+    const out = executor.transformRequest("deepseek-v4-1-flash-1017", { messages }, false, {
+      apiKey: "k",
+      providerSpecificData: { baseUrl: "https://api.deepseek.com/v1" },
+    });
+    expect(out.messages[1].reasoning_content).toBe(" ");
+  });
+});
