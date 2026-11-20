@@ -134,6 +134,22 @@ function resolve(provider, model) {
   return { pricing: pricing.getPricingForModel(provider, model), via: provider };
 }
 
+function legacySplit(tokens, total) {
+  const prompt = tokens.prompt_tokens || tokens.input_tokens || 0;
+  const completion = tokens.completion_tokens || tokens.output_tokens || 0;
+  const cached = tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
+  const sum = prompt + completion;
+  if (!sum || !total) return { input: 0, cached: 0, output: 0, reasoning: 0, cacheCreation: 0, total: total || 0 };
+  return {
+    input: Math.max(0, prompt - cached) * (total / sum),
+    cached: cached * (total / sum),
+    output: completion * (total / sum),
+    reasoning: 0,
+    cacheCreation: 0,
+    total,
+  };
+}
+
 const rows = db.prepare(
   "SELECT id, timestamp, provider, model, connectionId, apiKey, endpoint, cost, tokens, meta FROM usageHistory ORDER BY id ASC"
 ).all();
@@ -152,11 +168,14 @@ for (const row of rows) {
   try { meta = JSON.parse(row.meta) || {}; } catch {}
 
   const { pricing: rate, via } = resolve(row.provider, row.model);
-  const components = rate ? pricing.calculateCostBreakdown(tokens, rate) : null;
+  let components = rate ? pricing.calculateCostBreakdown(tokens, rate) : null;
   // No rate for this provider/model: keep the stored cost (it may come from a
   // deleted node or a legacy estimate). Writing 0 here would erase history.
+  // The split is apportioned by token share so the columns still sum to the total.
   const cost = components ? components.total : (row.cost || 0);
   const priced = !!components;
+  const estimated = !components && cost > 0;
+  if (!components) components = legacySplit(tokens, cost);
 
   beforeTotal += row.cost || 0;
   afterTotal += cost;
@@ -189,7 +208,7 @@ for (const row of rows) {
   aggregateEntryToDay(days.get(dateKey), entry);
 
   if (apply) {
-    const nextMeta = { ...meta, priced, ...(components ? { costComponents: components } : {}) };
+    const nextMeta = { ...meta, priced, ...(estimated ? { costEstimated: true } : {}), costComponents: components };
     updates.push({ id: row.id, cost, meta: nextMeta });
   }
 }
