@@ -93,15 +93,15 @@ function sortData(dataMap, pendingMap = {}, sortBy, sortOrder) {
     .map(([key, data]) => {
       const totalTokens = (data.promptTokens || 0) + (data.completionTokens || 0);
       const totalCost = data.cost || 0;
-      // ponytail: cost split is a token-share allocation of the (rate-accurate)
-      // server total, not a per-rate recompute. cached is a subset of prompt, so
-      // peel it out of the input share. Upgrade to a stored per-component cost
-      // breakdown if exact cached-rate cost display is needed.
+      // Prefer the component costs the server stored with the row (exact rate per
+      // token class). Fall back to the old token-share split for rows/rollups that
+      // predate them.
+      const hasComponents = typeof data.inputCost === "number" && typeof data.outputCost === "number";
       const cachedTokens = data.cachedTokens || 0;
       const nonCachedInput = Math.max(0, (data.promptTokens || 0) - cachedTokens);
-      const inputCost = totalTokens > 0 ? nonCachedInput * (totalCost / totalTokens) : 0;
-      const cachedCost = totalTokens > 0 ? cachedTokens * (totalCost / totalTokens) : 0;
-      const outputCost = totalTokens > 0 ? (data.completionTokens || 0) * (totalCost / totalTokens) : 0;
+      const inputCost = hasComponents ? data.inputCost : (totalTokens > 0 ? nonCachedInput * (totalCost / totalTokens) : 0);
+      const cachedCost = hasComponents ? (data.cachedCost || 0) : (totalTokens > 0 ? cachedTokens * (totalCost / totalTokens) : 0);
+      const outputCost = hasComponents ? data.outputCost : (totalTokens > 0 ? (data.completionTokens || 0) * (totalCost / totalTokens) : 0);
       return { ...data, key, totalTokens, totalCost, inputCost, cachedCost, outputCost, pending: pendingMap[key] || 0 };
     })
     .sort((a, b) => {
@@ -470,6 +470,12 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
 
       {/* Overview cards */}
       {loading ? spinner : <OverviewCards stats={stats} />}
+
+      {!loading && stats.unpriced > 0 && (
+        <div className="text-xs text-text-muted">
+          {fmt(stats.unpriced)} request{stats.unpriced === 1 ? "" : "s"} have no configured rate; their cost is a stored estimate. Set rates in Settings &rarr; Pricing.
+        </div>
+      )}
 
       {/* Provider topology + Recent Requests */}
       {loading ? spinner : (

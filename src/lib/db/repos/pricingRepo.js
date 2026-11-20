@@ -48,11 +48,34 @@ export async function getPricing() {
   return merged;
 }
 
-export async function getPricingForModel(provider, model) {
+/**
+ * Resolve pricing for a stored request.
+ *
+ * `providerKeys` are extra identities for the same upstream, in priority order
+ * (node prefix, baseUrl host). Custom OpenAI-compatible nodes only match an
+ * explicit entry or an exact canonical model id - never a glob - because the
+ * same model id is resold at different prices by different gateways.
+ */
+export async function getPricingForModel(provider, model, providerKeys = []) {
   if (!model) return null;
   const userPricing = await getUserPricing();
-  if (provider && userPricing[provider]?.[model]) return userPricing[provider][model];
-  const { getPricingForModel: resolveConst } = await import("open-sse/providers/pricing.js");
+
+  const keys = [...new Set([provider, ...providerKeys].filter(Boolean))];
+  for (const key of keys) {
+    const declared = userPricing[key]?.[model];
+    if (declared) return declared;
+  }
+
+  const { getPricingForModel: resolveConst, getExactPricingForModel } = await import("open-sse/providers/pricing.js");
+  const isCustomNode = keys.some((k) => k.startsWith("openai-compatible-"));
+  if (isCustomNode) {
+    for (const key of keys) {
+      const exact = getExactPricingForModel(key, model);
+      if (exact) return exact;
+    }
+    return null;
+  }
+
   return resolveConst(provider, model);
 }
 

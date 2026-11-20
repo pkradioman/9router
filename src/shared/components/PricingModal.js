@@ -7,10 +7,17 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
   const [pricingData, setPricingData] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [nodes, setNodes] = useState([]);
+  const [form, setForm] = useState({ provider: "", model: "", input: "", output: "", cached: "", reasoning: "", cache_creation: "" });
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       loadPricing();
+      fetch("/api/provider-nodes")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => setNodes(d?.nodes || []))
+        .catch(() => {});
     }
   }, [isOpen]);
 
@@ -72,6 +79,42 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
     }
   };
 
+  const handleAddEntry = async () => {
+    const provider = form.provider.trim();
+    const model = form.model.trim();
+    const input = parseFloat(form.input);
+    const output = parseFloat(form.output);
+    if (!provider || !model || !Number.isFinite(input) || !Number.isFinite(output)) {
+      alert("Provider, model, input and output rate are required.");
+      return;
+    }
+    const pricing = { input, output };
+    for (const key of ["cached", "reasoning", "cache_creation"]) {
+      const value = parseFloat(form[key]);
+      if (Number.isFinite(value)) pricing[key] = value;
+    }
+    setAdding(true);
+    try {
+      const response = await fetch("/api/pricing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [provider]: { [model]: pricing } }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        alert(`Failed to add pricing: ${error.error || response.status}`);
+        return;
+      }
+      setForm({ provider: "", model: "", input: "", output: "", cached: "", reasoning: "", cache_creation: "" });
+      await loadPricing();
+    } catch (error) {
+      console.error("Failed to add pricing:", error);
+      alert("Failed to add pricing");
+    } finally {
+      setAdding(false);
+    }
+  };
+
   const handleReset = async () => {
     if (!confirm("Reset all pricing to defaults? This cannot be undone.")) return;
 
@@ -119,6 +162,57 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
                 <p className="text-text-muted">
                   All rates are in <strong>dollars per million tokens</strong> ($/1M tokens).
                   Example: Input rate of 2.50 means $2.50 per 1,000,000 input tokens.
+                </p>
+              </div>
+
+              {/* Add a provider/model rate (custom OpenAI-compatible nodes are not in the defaults) */}
+              <div className="border border-border rounded-lg p-3">
+                <p className="font-medium text-sm mb-2">Add / update a rate</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                  <input
+                    list="pricing-provider-options"
+                    placeholder="provider (node id or prefix)"
+                    value={form.provider}
+                    onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                    className="col-span-2 px-2 py-1 text-sm bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
+                  />
+                  <datalist id="pricing-provider-options">
+                    {nodes.map((n) => (
+                      <option key={n.id} value={n.id}>{n.name}</option>
+                    ))}
+                    {nodes.filter((n) => n.prefix).map((n) => (
+                      <option key={`${n.id}-prefix`} value={n.prefix}>{n.name} (prefix)</option>
+                    ))}
+                  </datalist>
+                  <input
+                    placeholder="model id"
+                    value={form.model}
+                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    className="col-span-2 px-2 py-1 text-sm bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
+                  />
+                  {["input", "output", "cached", "reasoning", "cache_creation"].map((field) => (
+                    <input
+                      key={field}
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      placeholder={field}
+                      value={form[field]}
+                      onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                      className="px-2 py-1 text-sm text-right bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
+                    />
+                  ))}
+                  <button
+                    onClick={handleAddEntry}
+                    disabled={adding}
+                    className="col-span-2 px-3 py-1 text-sm rounded bg-primary text-white disabled:opacity-50"
+                  >
+                    {adding ? "Saving..." : "Save rate"}
+                  </button>
+                </div>
+                <p className="text-[11px] text-text-muted mt-2">
+                  $ per 1M tokens. Use the node id for one connection or the node prefix to cover all of its connections.
+                  Custom OpenAI-compatible nodes are never priced by model-name globs.
                 </p>
               </div>
 

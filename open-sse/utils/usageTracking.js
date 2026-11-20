@@ -131,6 +131,9 @@ export function normalizeUsage(usage) {
   assignNumber("cache_creation_input_tokens", usage?.cache_creation_input_tokens);
   assignNumber("cached_tokens", usage?.cached_tokens);
   assignNumber("reasoning_tokens", usage?.reasoning_tokens);
+  // Gemini reports thoughts outside candidatesTokenCount; OpenAI-shaped APIs
+  // count reasoning inside completion_tokens. Carry the distinction to cost calc.
+  if (usage?.reasoning_separate === true) normalized.reasoning_separate = true;
 
   // Preserve nested details objects for OpenAI format forwarding
   if (usage?.prompt_tokens_details && typeof usage.prompt_tokens_details === "object") {
@@ -206,6 +209,7 @@ export function canonicalizeUsage(usage) {
     cache_creation_input_tokens: cacheCreation,
   };
   if (reasoning > 0) result.reasoning_tokens = reasoning;
+  if (usage.reasoning_separate === true) result.reasoning_separate = true;
   return result;
 }
 
@@ -296,7 +300,8 @@ export function extractUsage(chunk) {
       completion_tokens: usageMeta.candidatesTokenCount || 0,
       total_tokens: usageMeta.totalTokenCount,
       cached_tokens: usageMeta.cachedContentTokenCount,
-      reasoning_tokens: usageMeta.thoughtsTokenCount
+      reasoning_tokens: usageMeta.thoughtsTokenCount,
+      reasoning_separate: usageMeta.thoughtsTokenCount !== undefined
     });
   }
 

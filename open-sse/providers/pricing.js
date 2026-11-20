@@ -412,6 +412,28 @@ export function matchPattern(pattern, model) {
 }
 
 /**
+ * Resolve pricing without name guessing: provider override, free namespace, or
+ * an EXACT canonical model id. No glob fallback.
+ *
+ * Custom OpenAI-compatible nodes need this: the same model id is resold by many
+ * gateways at different prices, so matching "deepseek-*" silently bills a
+ * Mistral/River connection at DeepSeek's own API rate.
+ *
+ * @param {string} provider
+ * @param {string} model
+ * @returns {object|null}
+ */
+export function getExactPricingForModel(provider, model) {
+  if (!model) return null;
+  if (provider && PROVIDER_PRICING[provider]?.[model]) {
+    return PROVIDER_PRICING[provider][model];
+  }
+  if (isFreeModel(model)) return ZERO_PRICING;
+  const baseModel = model.includes("/") ? model.split("/").pop() : model;
+  return MODEL_PRICING[baseModel] || MODEL_PRICING[model] || null;
+}
+
+/**
  * Resolve pricing for a model using the 4-step fallback chain:
  *   1. PROVIDER_PRICING[provider][model]
  *   2. free namespace (upstream bills $0)
@@ -467,15 +489,20 @@ export function formatCost(cost) {
 }
 
 /**
- * Calculate cost from tokens and pricing
+ * Calculate cost components from tokens and pricing.
+ *
+ * Reasoning is normally a SUBSET of completion tokens (OpenAI, Mistral,
+ * Anthropic), so charging it again on top double-bills thinking turns. Only
+ * charge it separately when the usage says it sits outside the completion
+ * count (`reasoning_separate`, set by the Gemini extractor).
+ *
  * @param {object} tokens
  * @param {object} pricing
- * @returns {number} cost in dollars
+ * @returns {{input:number,cached:number,output:number,reasoning:number,cacheCreation:number,total:number}}
  */
-export function calculateCostFromTokens(tokens, pricing) {
-  if (!tokens || !pricing) return 0;
-
-  let cost = 0;
+export function calculateCostBreakdown(tokens, pricing) {
+  const zero = { input: 0, cached: 0, output: 0, reasoning: 0, cacheCreation: 0, total: 0 };
+  if (!tokens || !pricing) return zero;
 
   const inputTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
   const cachedTokens = tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
@@ -484,23 +511,32 @@ export function calculateCostFromTokens(tokens, pricing) {
   // are subsets, so subtract both to avoid charging them at the full input rate.
   const nonCachedInput = Math.max(0, inputTokens - cachedTokens - cacheCreationTokens);
 
-  cost += nonCachedInput * (pricing.input / 1000000);
-
-  if (cachedTokens > 0) {
-    cost += cachedTokens * ((pricing.cached || pricing.input) / 1000000);
-  }
-
+  const input = nonCachedInput * (pricing.input / 1000000);
+  const cached = cachedTokens * ((pricing.cached ?? pricing.input) / 1000000);
   const outputTokens = tokens.completion_tokens || tokens.output_tokens || 0;
-  cost += outputTokens * (pricing.output / 1000000);
-
+  const output = outputTokens * (pricing.output / 1000000);
   const reasoningTokens = tokens.reasoning_tokens || 0;
-  if (reasoningTokens > 0) {
-    cost += reasoningTokens * ((pricing.reasoning || pricing.output) / 1000000);
-  }
+  const reasoning = tokens.reasoning_separate === true && reasoningTokens > 0
+    ? reasoningTokens * ((pricing.reasoning || pricing.output) / 1000000)
+    : 0;
+  const cacheCreation = cacheCreationTokens * ((pricing.cache_creation || pricing.input) / 1000000);
 
-  if (cacheCreationTokens > 0) {
-    cost += cacheCreationTokens * ((pricing.cache_creation || pricing.input) / 1000000);
-  }
+  return {
+    input,
+    cached,
+    output,
+    reasoning,
+    cacheCreation,
+    total: input + cached + output + reasoning + cacheCreation,
+  };
+}
 
-  return cost;
+/**
+ * Calculate cost from tokens and pricing
+ * @param {object} tokens
+ * @param {object} pricing
+ * @returns {number} cost in dollars
+ */
+export function calculateCostFromTokens(tokens, pricing) {
+  return calculateCostBreakdown(tokens, pricing).total;
 }
