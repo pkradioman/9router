@@ -123,7 +123,8 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
   const streamDetailId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
-  const onStreamComplete = (contentObj, usage, ttftAt) => {
+  const onStreamComplete = (contentObj, usage, ttftAt, abortInfo = null) => {
+    const aborted = abortInfo?.aborted === true;
     const latency = {
       ttft: ttftAt ? ttftAt - requestStartTime : Date.now() - requestStartTime,
       total: Date.now() - requestStartTime
@@ -140,14 +141,21 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       providerResponse: safeContent,
       response: { content: safeContent, thinking: safeThinking, type: "streaming" },
       pxpipe,
-      status: "success"
+      status: aborted ? "aborted" : "success"
     }, { id: streamDetailId })).catch(err => {
       console.error("[RequestDetail] Failed to update streaming content:", err.message);
     });
 
-    // Persist stream usage to DB (no console line; the "📊 done" line below is authoritative)
-    saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true });
-    if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
+    // Persist stream usage to DB (no console line; the "📊 done" line below is authoritative).
+    // A cut stream has no provider usage: the row is an estimate, flagged so the
+    // Usage page can report it separately instead of passing it off as billed usage.
+    saveUsageStats({
+      provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint,
+      label: "STREAM USAGE", silent: true,
+      status: aborted ? "aborted" : undefined,
+      meta: aborted ? { estimated: usage?.estimated === true, abortedReason: abortInfo.reason } : undefined,
+    });
+    if (log?.line) log.line(reqTag, aborted ? "⚡" : "📊", `${formatDoneLine({ usage, latency })}${aborted ? " (aborted, estimated)" : ""}`);
   };
 
   return { onStreamComplete, streamDetailId };

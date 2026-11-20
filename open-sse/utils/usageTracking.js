@@ -409,6 +409,23 @@ export function estimateUsage(body, contentLength, targetFormat = FORMATS.OPENAI
 }
 
 /**
+ * Usage for a stream that was cut (client cancel, socket reset, stall) before
+ * the provider reported any. The prompt was already processed upstream, so it
+ * is charged; output is only what actually reached the client. No prompt buffer
+ * (that is a client-facing courtesy) and marked `estimated`.
+ */
+export function estimateInterruptedUsage(body, contentLength) {
+  const inputTokens = estimateInputTokens(body);
+  const outputTokens = estimateOutputTokens(contentLength);
+  return {
+    prompt_tokens: inputTokens,
+    completion_tokens: outputTokens,
+    total_tokens: inputTokens + outputTokens,
+    estimated: true,
+  };
+}
+
+/**
  * Log usage with cache info (green color)
  */
 export function logUsage(provider, usage, model = null, connectionId = null, apiKey = null) {

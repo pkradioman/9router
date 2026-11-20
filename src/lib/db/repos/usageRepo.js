@@ -246,6 +246,7 @@ export async function saveRequestUsage(entry) {
     const tokens = entry.tokens || {};
     const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
     const completionTokens = tokens.completion_tokens || tokens.output_tokens || 0;
+    const estimated = entry.estimated === true || entry.meta?.estimated === true;
 
     let inserted = false;
 
@@ -285,6 +286,8 @@ export async function saveRequestUsage(entry) {
           stringifyJson(tokens),
           stringifyJson({
             priced: entry.priced !== false,
+            ...(entry.meta || {}),
+            ...(estimated ? { estimated: true } : {}),
             ...(entry.costComponents ? { costComponents: entry.costComponents } : {}),
           }),
         ]
@@ -296,7 +299,7 @@ export async function saveRequestUsage(entry) {
         requests: 0, promptTokens: 0, completionTokens: 0, cost: 0,
         byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
       };
-      aggregateEntryToDay(day, entry);
+      aggregateEntryToDay(day, { ...entry, estimated });
       db.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON CONFLICT(dateKey) DO UPDATE SET data = excluded.data`, [dateKey, stringifyJson(day)]);
 
       // Atomic counter increment in same transaction
@@ -399,7 +402,7 @@ export async function getUsageStats(period = "all") {
   const stats = {
     totalRequests: 0,
     totalPromptTokens: 0, totalCompletionTokens: 0, totalCachedTokens: 0, totalCost: 0,
-    inputCost: 0, cachedCost: 0, outputCost: 0, reasoningCost: 0, cacheCreationCost: 0, unpriced: 0,
+    inputCost: 0, cachedCost: 0, outputCost: 0, reasoningCost: 0, cacheCreationCost: 0, unpriced: 0, estimated: 0,
     byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
     last10Minutes: [],
     pending: pendingRequests,
@@ -608,6 +611,7 @@ export async function getUsageStats(period = "all") {
             reasoningCost: stored.reasoning || 0,
             cacheCreationCost: stored.cacheCreation || 0,
             unpriced: meta.priced === false ? 1 : 0,
+            estimated: meta.estimated === true ? 1 : 0,
           }
         : null;
       const promptTokens = tokens.prompt_tokens || tokens.input_tokens || r.promptTokens || 0;

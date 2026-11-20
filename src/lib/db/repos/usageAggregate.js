@@ -13,13 +13,15 @@ export function addCostComponents(target, src) {
   if (!src) return;
   for (const key of COST_COMPONENT_KEYS) target[key] = (target[key] || 0) + (src[key] || 0);
   target.unpriced = (target.unpriced || 0) + (src.unpriced || 0);
+  target.estimated = (target.estimated || 0) + (src.estimated || 0);
 }
 
 function addToCounter(target, key, values) {
   if (!target[key]) {
     target[key] = {
       requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0,
-      inputCost: 0, cachedCost: 0, outputCost: 0, reasoningCost: 0, cacheCreationCost: 0, unpriced: 0,
+      inputCost: 0, cachedCost: 0, outputCost: 0, reasoningCost: 0, cacheCreationCost: 0,
+      unpriced: 0, estimated: 0,
     };
   }
   target[key].requests += values.requests || 1;
@@ -46,6 +48,7 @@ export function aggregateEntryToDay(day, entry) {
     reasoningCost: components?.reasoning || 0,
     cacheCreationCost: components?.cacheCreation || 0,
     unpriced: entry.priced === false ? 1 : 0,
+    estimated: entry.estimated ? 1 : 0,
   };
 
   day.requests = (day.requests || 0) + 1;

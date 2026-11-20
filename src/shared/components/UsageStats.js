@@ -477,6 +477,12 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </div>
       )}
 
+      {!loading && stats.estimated > 0 && (
+        <div className="text-xs text-text-muted">
+          {fmt(stats.estimated)} request{stats.estimated === 1 ? "" : "s"} were cut before the provider reported usage (client cancel or upstream disconnect); their tokens and cost are estimated.
+        </div>
+      )}
+
       {/* Provider topology + Recent Requests */}
       {loading ? spinner : (
         <div className="grid min-w-0 grid-cols-1 items-stretch gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">

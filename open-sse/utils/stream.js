@@ -3,7 +3,7 @@ import { FORMATS } from "../translator/formats.js";
 import { PROVIDERS } from "../config/providers.js";
 import { liftReasoningAliases } from "../translator/concerns/reasoning.js";
 import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb.js";
-import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
+import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, estimateInterruptedUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE, ensureStreamToolCallIds } from "./streamHelpers.js";
 import { restoreToolNames } from "./opencodeFingerprint.js";
 import { normalizeOpenAIChatChunk } from "./contentChunks.js";
@@ -99,6 +99,9 @@ export function createSSEStream(options = {}) {
   let streamDoneSent = false;  // track duplicate [DONE] across transform + flush
   let finalized = false;
   let completionFlushTimer = null;
+  // Set when the stream is cut before a terminal event, so the usage row says
+  // "estimated" instead of being dropped (or passing as a clean completion).
+  let terminatedReason = null;
 
   // Lane quirk: upstream streams thinking under the OpenRouter aliases
   // (`reasoning` / `reasoning_details[]`) instead of reasoning_content — OpenCode
@@ -114,10 +117,13 @@ export function createSSEStream(options = {}) {
     finalized = true;
 
     const isPassthrough = mode === STREAM_MODE.PASSTHROUGH;
+    const aborted = terminatedReason !== null;
     let finalUsage = isPassthrough ? usage : state?.usage;
 
-    if (!hasValidUsage(finalUsage) && totalContentLength > 0) {
-      finalUsage = estimateUsage(body, totalContentLength, isPassthrough ? FORMATS.OPENAI : sourceFormat);
+    if (!hasValidUsage(finalUsage) && (totalContentLength > 0 || aborted)) {
+      finalUsage = aborted
+        ? estimateInterruptedUsage(body, totalContentLength)
+        : estimateUsage(body, totalContentLength, isPassthrough ? FORMATS.OPENAI : sourceFormat);
       if (isPassthrough) usage = finalUsage; else state.usage = finalUsage;
     }
 
@@ -131,7 +137,7 @@ export function createSSEStream(options = {}) {
       onStreamComplete({
         content: accumulatedContent,
         thinking: accumulatedThinking
-      }, finalUsage, ttftAt);
+      }, finalUsage, ttftAt, aborted ? { aborted: true, reason: terminatedReason } : null);
     }
   };
 
@@ -149,7 +155,7 @@ export function createSSEStream(options = {}) {
     finalizeStream();
   };
 
-  return new TransformStream({
+  const stream = new TransformStream({
     transform(chunk, controller) {
       if (!ttftAt) ttftAt = Date.now();
       const text = decoder.decode(chunk, { stream: true });
@@ -601,6 +607,16 @@ export function createSSEStream(options = {}) {
       }
     }
   });
+
+  // Called by pipeWithDisconnect when the stream is cut before a terminal event.
+  // finalizeStream() is idempotent, so a late [DONE] cannot double-count.
+  stream.abortStream = (reason) => {
+    if (finalized) return;
+    terminatedReason = reason || "aborted";
+    finalizeStream();
+  };
+
+  return stream;
 }
 
 export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider = null, reqLogger = null, toolNameMap = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, customToolNames = null, credentials = null) {

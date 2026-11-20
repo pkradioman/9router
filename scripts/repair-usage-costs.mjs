@@ -198,6 +198,7 @@ for (const row of rows) {
     tokens,
     cost,
     priced,
+    estimated: meta.estimated === true,
     costComponents: components,
   };
 
