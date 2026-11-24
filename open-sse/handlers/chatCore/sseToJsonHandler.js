@@ -154,7 +154,10 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
     // Vendor aliases (`reasoning`, `reasoning_details[]`) count as reasoning too:
     // without this an alias lane's thinking is silently dropped before the
     // empty-content rescue below could keep it.
-    const reasoningText = extractReasoningText(delta);
+    // extractReasoningText also understands Mistral content arrays (shared with
+    // the Claude path); when flattenContentChunks consumed that array above the
+    // thinking is already counted, so only the alias fields are read here.
+    const reasoningText = extractReasoningText(flatContent ? { ...delta, content: undefined } : delta);
     if (reasoningText.length > 0) reasoningParts.push(reasoningText);
     if (choice?.finish_reason) finishReason = choice.finish_reason;
     if (chunk?.usage && typeof chunk.usage === "object") usage = chunk.usage;

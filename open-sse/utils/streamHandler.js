@@ -187,8 +187,12 @@ export function createDisconnectAwareStream(transformStream, streamController, o
         // A cut socket is a disconnect, not a provider failure: log it as one.
         const networkClose = isUpstreamNetworkClose(error);
         if (!isControllerClosed) {
-          if (networkClose) streamController.handleUpstreamClose(error);
-          else streamController.handleError(error);
+          // Controllers used in tests/mocks may predate handleUpstreamClose.
+          if (networkClose && typeof streamController.handleUpstreamClose === "function") {
+            streamController.handleUpstreamClose(error);
+          } else {
+            streamController.handleError?.(error);
+          }
         }
         terminate(isControllerClosed ? "downstream closed"
           : networkClose ? networkCloseReason(error)
