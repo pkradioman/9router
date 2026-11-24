@@ -100,7 +100,7 @@ function hostAlias(rawUrl) {
   }
 }
 
-async function getProviderPricingKeys(provider) {
+export async function getProviderPricingKeys(provider) {
   if (!provider || !provider.startsWith("openai-compatible-")) return [];
   if (Date.now() - nodePricingHints.ts < NODE_PRICING_HINT_TTL_MS) {
     return nodePricingHints.map.get(provider) || [];

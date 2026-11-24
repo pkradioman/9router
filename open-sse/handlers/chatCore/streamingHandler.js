@@ -120,7 +120,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 /**
  * Build onStreamComplete callback for streaming usage tracking.
  */
-export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
+export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, saver, reqTag, log }) {
   const streamDetailId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
   const onStreamComplete = (contentObj, usage, ttftAt, abortInfo = null) => {
@@ -149,11 +149,17 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
     // Persist stream usage to DB (no console line; the "📊 done" line below is authoritative).
     // A cut stream has no provider usage: the row is an estimate, flagged so the
     // Usage page can report it separately instead of passing it off as billed usage.
+    const meta = {};
+    if (aborted) {
+      meta.estimated = usage?.estimated === true;
+      meta.abortedReason = abortInfo.reason;
+    }
+    if (saver) meta.saver = saver;
     saveUsageStats({
       provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint,
       label: "STREAM USAGE", silent: true,
       status: aborted ? "aborted" : undefined,
-      meta: aborted ? { estimated: usage?.estimated === true, abortedReason: abortInfo.reason } : undefined,
+      meta: Object.keys(meta).length ? meta : undefined,
     });
     if (log?.line) log.line(reqTag, aborted ? "⚡" : "📊", `${formatDoneLine({ usage, latency })}${aborted ? " (aborted, estimated)" : ""}`);
   };

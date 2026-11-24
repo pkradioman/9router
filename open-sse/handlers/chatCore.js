@@ -336,7 +336,31 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   if (xf.length && log?.line) log.line(reqTag, "⚙", xf.join(" · "));
 
-  // Pin cache breakpoints to the final body — every saver above can reshape
+  // Token-saver measurement. Written on EVERY request (v:1) so rows from before
+  // instrumentation can be excluded: without that marker every old row would
+  // look like a "caveman off" sample and poison the on/off comparison.
+  const rtkFilters = {};
+  for (const hit of rtkStats?.hits || []) {
+    rtkFilters[hit.filter] = (rtkFilters[hit.filter] || 0) + (hit.saved || 0);
+  }
+  const saver = {
+    v: 1,
+    // RTK is automatic and is measured directly: raw bytes removed from
+    // tool_result blobs. Not a billed-token number (see the dashboard note).
+    rtk: {
+      enabled: !!(tokenSaverEnabled && rtkEnabled),
+      bytesBefore: rtkStats?.bytesBefore || 0,
+      bytesAfter: rtkStats?.bytesAfter || 0,
+      bytesSaved: Math.max(0, (rtkStats?.bytesBefore || 0) - (rtkStats?.bytesAfter || 0)),
+      hits: rtkStats?.hits?.length || 0,
+      filters: rtkFilters,
+    },
+    // Caveman has no locally measurable saving; this flag is what makes an
+    // on/off cohort comparison possible later.
+    caveman: tokenSaverEnabled && cavemanEnabled && cavemanLevel ? { level: cavemanLevel } : null,
+  };
+
+  // Pin cache breakpoints to the final body - every saver above can reshape
   // system/tools/messages, and a stale anchor costs a full prefix rewrite.
   if (passthrough && clientTool === "claude") anchorClaudeCache(translatedBody);
 
@@ -519,7 +543,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     return createErrorResult(statusCode, errMsg, resetsAtMs, upstreamResponseHeaders(providerResponse.headers));
   }
 
-  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
+  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, saver, reqTag, log };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
