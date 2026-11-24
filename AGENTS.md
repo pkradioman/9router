@@ -48,16 +48,32 @@ git checkout fork/main && git merge --no-ff upstream/master
 ## Versioning
 
 - `package.json` version is monotonic and ahead of upstream: `0.5.124`, `0.5.125`, …
+- Bump the patch version once per task, as step 0 of the build: an installed build without a
+  matching `fork-v<version>` tag is a bug in the workflow, not a shortcut.
 - On collision with a future upstream release: `max(upstream, fork + 1)` after merging.
 - Tag every installed build `fork-v<version>`. Rollback = checkout tag → rebuild → install.
 - `electron-builder` artifacts: `dist-electron/9Router-<version>-setup.exe`, `-portable.exe`.
 
-## Build → install
+## Build → install (end of every task)
+
+**Done means installed and running.** No feature/fix task is complete until the new build is
+packaged, installed, launched, and verified against the checklist below.
+
+- Mid-task builds are pre-approved: build on the sandbox whenever you need to verify
+  something, without asking.
+- The closing install/launch replaces the running app automatically. Announce it, don't wait
+  for approval — the one exception is clients actively connected (see Rules).
+- Each task gets its own version bump, so every review build has a distinct
+  `fork-v<version>` tag and `/api/version` matches what is on screen.
 
 Run from the repo root. The Linux sandbox `rerun-build` (boxd) is the build host; Windows
 packaging and installation happen locally.
 
 ```bash
+# 0. bump the version first, so artifact / install / /api/version / tag all agree
+npm version patch --no-git-tag-version
+git commit -am "chore(release): v<version>"
+
 # 1. push the exact commit first
 git push origin fork/main
 
@@ -88,8 +104,21 @@ dist-electron\9Router-<version>-setup.exe /S
 Rules:
 - Never edit `%LOCALAPPDATA%\Programs\9Router` or its `app.asar`/runtime. Fix the repo,
   rebuild, reinstall.
-- Do not restart or replace the app while clients are using it; confirm it is idle.
+- The closing install/launch replaces the running app on its own. Announce the restart
+  instead of asking; skip it only while clients are actively connected, and finish the
+  install as soon as they are idle.
 - `desktop-app/` and `desktop-dist/` are build outputs; never commit them.
+
+## Definition of done
+
+A task is finished only when all of these are true:
+
+- [ ] source change committed and pushed to `origin/fork/main`
+- [ ] version bumped and `fork-v<version>` tagged + pushed
+- [ ] sandbox build succeeded and the sha256 of `desktop-app.tgz` was verified after copy
+- [ ] `dist-electron/9Router-<version>-setup.exe` installed
+- [ ] app relaunched and every row of the verification table below passes
+- [ ] `AGENTS.md` → Current state reflects the new version and what is still pending
 
 ## Verification after an install
 
@@ -183,6 +212,8 @@ Conventional Commits, one concern per commit. Fork commits should name the area
 ## Current state
 
 - Version **0.5.125**, branch `fork/main`, upstream merged at `5ae63d22` (v0.5.123).
-- Installed and running on this machine; data dir `%APPDATA%\9router`.
+- Installed on this machine, tagged `fork-v0.5.125`; data dir `%APPDATA%\9router`.
+- Saver measurement so far: 28 instrumented rows, all caveman ON, RTK hit on 27 of them
+  (~402 KB prompt bytes removed).
 - Pending, not started: caveman OFF cohort needs a comparable window before the Token Saver
   comparison is meaningful; RTK effectiveness should be read after ~1–2 weeks of traffic.
