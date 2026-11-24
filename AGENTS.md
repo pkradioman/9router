@@ -8,7 +8,7 @@ Last updated: 2026-11-25
 
 ## Local copy
 
-- Repo root: `D:\Repos\ai\tools\gateway` (the session cwd may be a scratch folder; open this path).
+- Repo root: `D:\Repos\ai\tools\gateway\9router` (the session cwd may be a scratch folder; open this path).
 - Installed app: `%LOCALAPPDATA%\Programs\9Router`; data: `%APPDATA%\9router`.
 
 ## Remotes and branches
