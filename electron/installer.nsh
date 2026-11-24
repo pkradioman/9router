@@ -22,6 +22,11 @@
   ; /T kills the Electron child processes (renderer, GPU, utility) too.
   nsExec::Exec '"$SYSDIR\taskkill.exe" /F /T /IM 9Router.exe'
   Sleep 700
+  ; Next's prerendered route cache lives in the install dir and survives an
+  ; in-place upgrade. Stale entries reference the previous build's chunks, so
+  ; the dashboard would keep running the old UI. The app also clears this when
+  ; BUILD_ID changes, but do it here so an install always starts clean.
+  RMDir /r "$INSTDIR\resources\app\runtime\desktop-dist\server\route-cache"
 !macroend
 
 !macro customUnInstallCheck

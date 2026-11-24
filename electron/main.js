@@ -21,6 +21,26 @@ function logLine(...parts) {
   } catch {}
 }
 
+// Next writes prerendered HTML/RSC into <dist>/server/route-cache, inside the
+// install dir. That cache survives upgrades, so after an update the server can
+// keep serving pages that reference the PREVIOUS build's chunks - the dashboard
+// then runs the old UI and shows the old version. Clear it when BUILD_ID moves.
+function clearStaleRouteCache() {
+  try {
+    const distDir = path.join(serverDir, "desktop-dist");
+    const buildId = fs.readFileSync(path.join(distDir, "BUILD_ID"), "utf8").trim();
+    const markerPath = path.join(app.getPath("userData"), "route-cache-build-id");
+    const previous = fs.existsSync(markerPath) ? fs.readFileSync(markerPath, "utf8").trim() : "";
+    if (!buildId || previous === buildId) return;
+    fs.rmSync(path.join(distDir, "server", "route-cache"), { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+    fs.writeFileSync(markerPath, buildId);
+    logLine("route cache cleared for new build", buildId);
+  } catch (err) {
+    logLine("route cache check failed", err && (err.message || String(err)));
+  }
+}
+
 process.on("uncaughtException", (err) => {
   logLine("uncaughtException", err && (err.stack || err.message || String(err)));
   dialog.showErrorBox("9Router", String(err && (err.stack || err.message || err)));
@@ -55,6 +75,7 @@ async function pickPort() {
 function startServer(p) {
   // The Next standalone entrypoint reads PORT/HOSTNAME and chdirs itself.
   // DATA_DIR is left alone so the desktop app shares %APPDATA%\9router with the CLI.
+  clearStaleRouteCache();
   process.env.NODE_ENV = "production";
   process.env.PORT = String(p);
   // Bind all interfaces like the CLI launcher does (DEFAULT_HOST = 0.0.0.0);
