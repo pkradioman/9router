@@ -6,6 +6,11 @@ specific to this fork, how it is built, and how upstream is merged.
 
 Last updated: 2026-11-25
 
+## Local copy
+
+- Repo root: `D:\Repos\ai\tools\gateway` (the session cwd may be a scratch folder; open this path).
+- Installed app: `%LOCALAPPDATA%\Programs\9Router`; data: `%APPDATA%\9router`.
+
 ## Remotes and branches
 
 | Remote | Repo | Role |
@@ -69,7 +74,7 @@ boxd machine exec rerun-build --timeout 3000 -- bash -lc '
 boxd machine stop rerun-build
 
 # 3. copy back, verify sha256, extract (desktop-app/ is gitignored)
-cmd /c 'boxd machine cp rerun-build:/tmp/desktop-app.tgz - > D:\Repos\9router\desktop-app.tgz'
+cmd /c 'boxd machine cp rerun-build:/tmp/desktop-app.tgz - > desktop-app.tgz'
 tar -xzf desktop-app.tgz -C desktop-app
 
 # 4. package on Windows
