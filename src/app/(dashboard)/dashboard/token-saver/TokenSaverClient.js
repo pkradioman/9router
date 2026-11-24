@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Card, Button, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
+import { Card, Button, Input, Modal, Toggle, ConfirmModal, SegmentedControl, Tooltip } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
 import {
@@ -10,11 +10,11 @@ import {
   PONYTAIL_LEVELS,
 } from "../endpoint/endpointConstants";
 
-const SAVER_PERIOD_TABS = [
-  { id: "24h", label: "24h" },
-  { id: "7d", label: "7d" },
-  { id: "30d", label: "30d" },
-  { id: "all", label: "All" },
+const SAVER_PERIOD_OPTIONS = [
+  { value: "24h", label: "24h" },
+  { value: "7d", label: "7d" },
+  { value: "30d", label: "30d" },
+  { value: "all", label: "All" },
 ];
 
 function fmtTokens(n) {
@@ -42,11 +42,12 @@ function fmtPct(n) {
   return Number.isFinite(n) ? `${n}%` : "-";
 }
 
-function Stat({ label, value, tone = "" }) {
+function Metric({ label, value, sub, tone = "" }) {
   return (
     <div>
-      <p className="text-[11px] text-text-muted">{label}</p>
-      <p className={`text-sm font-semibold ${tone}`}>{value}</p>
+      <p className="text-xs text-text-muted uppercase tracking-wide">{label}</p>
+      <p className={`text-xl font-semibold mt-1 ${tone}`}>{value}</p>
+      {sub ? <p className="text-xs text-text-muted mt-0.5">{sub}</p> : null}
     </div>
   );
 }
@@ -555,160 +556,122 @@ export default function TokenSaverClient() {
 
   return (
     <div className="space-y-6 p-6">
-      <Card>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">monitoring</span>
-            Is it worth it?
-          </h2>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1">
-            {SAVER_PERIOD_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setSaverPeriod(tab.id)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  saverPeriod === tab.id
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-text-muted hover:text-text hover:bg-bg-hover"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-lg font-semibold">Savings</h2>
+            <Tooltip text="RTK: prompt bytes removed, estimated. Caveman: output tokens per request, ON vs OFF. Cash is gross, before cache effects.">
+              <span className="material-symbols-outlined text-[16px] text-text-muted">info</span>
+            </Tooltip>
           </div>
+          <SegmentedControl
+            options={SAVER_PERIOD_OPTIONS}
+            value={saverPeriod}
+            onChange={setSaverPeriod}
+            size="sm"
+          />
         </div>
 
         {saverLoading ? (
-          <p className="text-sm text-text-muted py-2">Loading…</p>
+          <p className="text-sm text-text-muted mt-4">Loading</p>
         ) : !rtk || !saverStats.instrumented.requests ? (
-          <p className="text-sm text-text-muted py-2">
-            No measured requests yet in this window. Savings are recorded per request from this
-            build on, so send some traffic with the savers enabled.
-          </p>
+          <p className="text-sm text-text-muted mt-4">No measured requests in this window.</p>
         ) : (
           <>
-            <p className="text-xs text-text-muted">
-              {saverStats.instrumented.requests.toLocaleString()} measured request
-              {saverStats.instrumented.requests === 1 ? "" : "s"} of{" "}
-              {saverStats.requestsTotal.toLocaleString()} in the window
-              {saverStats.instrumented.firstAt
-                ? ` · ${new Date(saverStats.instrumented.firstAt).toLocaleString()} → ${new Date(saverStats.instrumented.lastAt).toLocaleString()}`
-                : ""}
+            <p className="text-xs text-text-muted mt-1">
+              {saverStats.instrumented.requests.toLocaleString()} of{" "}
+              {saverStats.requestsTotal.toLocaleString()} requests measured
             </p>
 
-            <div className="grid gap-4 lg:grid-cols-2 pt-3">
-              <div className="border border-border rounded-lg p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium">RTK</p>
-                  <span className="text-[11px] text-text-muted">
-                    {rtk.enabledRequests.toLocaleString()} requests with RTK on
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-                  <Stat label="Fires on" value={fmtPct(rtk.coveragePct)} />
-                  <Stat label="Of prompt removed" value={fmtPct(rtk.promptSharePct)} tone="text-success" />
-                  <Stat label="≈ tokens avoided" value={fmtTokens(rtk.tokensSavedEst)} />
-                  <Stat label="≈ gross $ in / cached" value={`${fmtMoney(rtk.inputCostEst)} / ${fmtMoney(rtk.cachedCostEst)}`} />
-                </div>
-
-                {rtk.filters.length > 0 && (
-                  <p className="text-[11px] text-text-muted mt-3">
-                    Top filters:{" "}
-                    {rtk.filters.slice(0, 3).map((f) => `${f.filter} ${fmtBytes(f.bytes)}`).join(" · ")}
-                  </p>
-                )}
-
-                {rtk.cache.hit.requests > 0 && rtk.cache.miss.requests > 0 && (
-                  <p className="text-[11px] text-text-muted mt-2">
-                    Cache-hit rate: <b>{fmtPct(rtk.cache.hit.cacheRatePct)}</b> when RTK compressed (
-                    {rtk.cache.hit.requests.toLocaleString()}) vs{" "}
-                    <b>{fmtPct(rtk.cache.miss.cacheRatePct)}</b> when it did not (
-                    {rtk.cache.miss.requests.toLocaleString()}). A large gap means compression is
-                    breaking cached prefixes.
-                  </p>
-                )}
-
-                {rtk.unpricedBytes > 0 && (
-                  <p className="text-[11px] text-text-muted mt-2">
-                    {fmtBytes(rtk.unpricedBytes)} from models without a configured rate — add rates in
-                    Settings → Pricing to include them in the $ range.
-                  </p>
-                )}
-              </div>
-
-              <div className="border border-border rounded-lg p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium">Caveman</p>
-                  <span className="text-[11px] text-text-muted">
-                    ON {(cav?.onRequests || 0).toLocaleString()} · OFF{" "}
-                    {(cav?.offRequests || 0).toLocaleString()}
-                  </span>
-                </div>
-
-                {!cavHasBoth ? (
-                  <p className="text-sm text-text-muted mt-2">
-                    {(cav?.onRequests || 0) > 0
-                      ? "Every measured request had Caveman on. Turn it off for a comparable window to get the on/off delta."
-                      : "No requests with Caveman on in this window."}
-                  </p>
-                ) : cavModels.length === 0 ? (
-                  <p className="text-sm text-text-muted mt-2">
-                    No model has both cohorts yet; the comparison needs the same model on and off.
-                  </p>
-                ) : (
-                  <table className="w-full text-xs mt-2">
-                    <thead>
-                      <tr className="text-text-muted text-left">
-                        <th className="font-normal pb-1">Model</th>
-                        <th className="font-normal pb-1 text-right">ON out/req</th>
-                        <th className="font-normal pb-1 text-right">OFF out/req</th>
-                        <th className="font-normal pb-1 text-right">Δ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cavModels.map((m) => {
-                        const delta = m.off.avgOutputTokens
-                          ? ((m.on.avgOutputTokens - m.off.avgOutputTokens) / m.off.avgOutputTokens) * 100
-                          : null;
-                        const small = m.on.requests < 100 || m.off.requests < 100;
-                        return (
-                          <tr key={`${m.provider}|${m.model}`} className="border-t border-border">
-                            <td className="py-1 pr-2 truncate max-w-[16rem]" title={`${m.model} (${m.provider})`}>
-                              {m.model}
-                            </td>
-                            <td className="py-1 text-right">
-                              {fmtTokens(m.on.avgOutputTokens)}{" "}
-                              <span className="text-text-muted">({m.on.requests})</span>
-                            </td>
-                            <td className="py-1 text-right">
-                              {fmtTokens(m.off.avgOutputTokens)}{" "}
-                              <span className="text-text-muted">({m.off.requests})</span>
-                            </td>
-                            <td className={`py-1 text-right font-medium ${delta != null && delta < 0 ? "text-success" : ""}`}>
-                              {delta == null ? "-" : `${delta > 0 ? "+" : ""}${delta.toFixed(0)}%`}
-                              {small ? <span className="text-text-muted"> *</span> : null}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-
-                <p className="text-[11px] text-text-muted mt-2">
-                  Output tokens per request, same model, ON vs OFF windows. No “tokens saved” figure:
-                  the effect is on model verbosity, so only the cohort delta is meaningful.
-                  <span className="text-text-muted"> * fewer than 100 requests in a cohort.</span>
-                </p>
-              </div>
+            <div className="grid grid-cols-2 gap-4 mt-4 md:grid-cols-4">
+              <Metric label="RTK fires" value={fmtPct(rtk.coveragePct)} />
+              <Metric label="Prompt removed" value={fmtPct(rtk.promptSharePct)} tone="text-success" />
+              <Metric label="Tokens avoided" value={fmtTokens(rtk.tokensSavedEst)} />
+              <Metric
+                label="Cost avoided"
+                value={fmtMoney(rtk.inputCostEst)}
+                sub={`${fmtMoney(rtk.cachedCostEst)} cached`}
+              />
             </div>
 
-            <p className="text-[11px] text-text-muted mt-3">
-              RTK numbers are raw prompt bytes removed (4 bytes ≈ 1 token), not billed tokens. The $
-              range assumes the removed content would have been billed at input rate or, at the lower
-              bound, would have been served from cache anyway. Caveman windows are compared per model;
-              task mix can drift between them.
-            </p>
+            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-3 text-xs text-text-muted">
+              <Tooltip text="Cache-hit rate on RTK-compressed vs uncompressed requests. A gap means compression is breaking cached prefixes.">
+                <span>
+                  Cache-hit {fmtPct(rtk.cache.hit.cacheRatePct)} / {fmtPct(rtk.cache.miss.cacheRatePct)}
+                </span>
+              </Tooltip>
+              {rtk.filters[0] ? (
+                <span>
+                  {rtk.filters[0].filter} {fmtBytes(rtk.filters[0].bytes)}
+                </span>
+              ) : null}
+              {rtk.unpricedBytes > 0 ? <span>{fmtBytes(rtk.unpricedBytes)} unpriced</span> : null}
+            </div>
+
+            <div className="border-t border-border mt-4 pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium">Caveman</span>
+                  <Tooltip text="Output tokens per request, same model, ON vs OFF. No token-saved estimate: the effect is on model verbosity.">
+                    <span className="material-symbols-outlined text-[15px] text-text-muted">info</span>
+                  </Tooltip>
+                </div>
+                <span className="text-xs text-text-muted">
+                  ON {(cav?.onRequests || 0).toLocaleString()} · OFF{" "}
+                  {(cav?.offRequests || 0).toLocaleString()}
+                </span>
+              </div>
+
+              {!cavHasBoth ? (
+                <p className="text-xs text-text-muted mt-1">Needs an OFF window.</p>
+              ) : cavModels.length === 0 ? (
+                <p className="text-xs text-text-muted mt-1">No model has both cohorts.</p>
+              ) : (
+                <table className="w-full text-xs mt-2">
+                  <thead>
+                    <tr className="text-text-muted">
+                      <th className="font-normal text-left pb-1">Model</th>
+                      <th className="font-normal text-right pb-1">ON</th>
+                      <th className="font-normal text-right pb-1">OFF</th>
+                      <th className="font-normal text-right pb-1">Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cavModels.map((m) => {
+                      const delta = m.off.avgOutputTokens
+                        ? ((m.on.avgOutputTokens - m.off.avgOutputTokens) / m.off.avgOutputTokens) * 100
+                        : null;
+                      const small = m.on.requests < 100 || m.off.requests < 100;
+                      return (
+                        <tr key={`${m.provider}|${m.model}`} className="border-t border-border">
+                          <td
+                            className="py-1 pr-3 truncate max-w-[14rem]"
+                            title={`${m.model} (${m.provider})`}
+                          >
+                            {m.model}
+                          </td>
+                          <td className="py-1 text-right">
+                            {fmtTokens(m.on.avgOutputTokens)}
+                            <span className="text-text-muted"> ({m.on.requests})</span>
+                          </td>
+                          <td className="py-1 text-right">
+                            {fmtTokens(m.off.avgOutputTokens)}
+                            <span className="text-text-muted"> ({m.off.requests})</span>
+                          </td>
+                          <td
+                            className={`py-1 text-right font-medium ${delta != null && delta < 0 ? "text-success" : ""}`}
+                            title={small ? "Fewer than 100 requests in a cohort" : undefined}
+                          >
+                            {delta == null ? "-" : `${delta > 0 ? "+" : ""}${delta.toFixed(0)}%`}
+                            {small ? " *" : ""}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </>
         )}
       </Card>
