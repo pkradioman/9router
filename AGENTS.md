@@ -211,8 +211,12 @@ Conventional Commits, one concern per commit. Fork commits should name the area
 
 ## Current state
 
-- Version **0.5.125**, branch `fork/main`, upstream merged at `5ae63d22` (v0.5.123).
-- Installed on this machine, tagged `fork-v0.5.125`; data dir `%APPDATA%\9router`.
+- Source version **0.5.126**, branch `fork/main`, upstream merged at `5ae63d22` (v0.5.123).
+- Windows remains on **0.5.125**, tagged `fork-v0.5.125`; data dir `%APPDATA%\9router`.
+- Ubuntu x64 AppImage **0.5.126** installed per-user on `ubuntu-dell`; its launcher uses
+  `~/.local/share/9router-linux-desktop` to avoid the machine's existing `~/.9router` data.
+  Login and dashboard navigation passed on an isolated X11 display; tray interaction and
+  real provider requests remain unverified.
 - Saver measurement so far: 28 instrumented rows, all caveman ON, RTK hit on 27 of them
   (~402 KB prompt bytes removed).
 - Pending, not started: caveman OFF cohort needs a comparable window before the Token Saver

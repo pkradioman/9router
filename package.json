@@ -1,6 +1,6 @@
 {
   "name": "9router-app",
-  "version": "0.5.125",
+  "version": "0.5.126",
   "description": "9Router web dashboard",
   "author": "pkradioman",
   "copyright": "Copyright © 2026 pkradioman",
@@ -24,6 +24,7 @@
     "desktop:build": "node scripts/desktop-build.mjs",
     "desktop:stage": "node scripts/desktop-build.mjs --stage-only",
     "desktop:pack:win": "electron-builder --win nsis portable --config electron-builder.yml -c.win.signAndEditExecutable=true",
+    "desktop:pack:linux": "electron-builder --linux AppImage --x64 --config electron-builder.yml",
     "repair:usage-costs": "node --experimental-default-type=module scripts/repair-usage-costs.mjs"
   },
   "dependencies": {

@@ -15,6 +15,14 @@ extraResources:
 asar: true
 npmRebuild: false
 buildDependenciesFromSource: false
+linux:
+  icon: electron/icon.png
+  category: Network
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  artifactName: 9Router-${version}-${arch}.AppImage
 win:
   icon: electron/icon.ico
   target:
