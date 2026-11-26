@@ -3,9 +3,21 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import { UPDATER_CONFIG } from "@/shared/constants/config";
+import { isExperimentalMode } from "./experimentalSafety.js";
 
 const KILL_TIMEOUT_MS = 5000;
 const PROCESS_WAIT_MS = 1500;
+
+// Experimental desktop: this module's purpose is to kill every 9router/next/tray
+// process on the box and replace the global npm package. On a machine that also
+// runs the installed app that is destructive, so the whole module is inert.
+// Routes are already blocked in dashboardGuard; this guards direct imports too.
+function refuseInExperimental(operation) {
+  if (!isExperimentalMode()) return;
+  throw new Error(
+    `${operation} is disabled in the experimental desktop build; it would affect the installed 9router application.`
+  );
+}
 
 // Kill MITM server by PID file (MITM may run as admin/sudo)
 function killMitmByPidFile() {
@@ -137,6 +149,7 @@ function ensureRuntimeUpdater(bundledPath) {
 
 // Kill all app-related processes to release file locks (esp. on Windows)
 export async function killAppProcesses() {
+  refuseInExperimental("killAppProcesses");
   killMitmByPidFile();
   const pids = collectAppPids();
   const platform = process.platform;
@@ -166,6 +179,7 @@ function resolveRelaunchCommand() {
 
 // Spawn detached headless updater (Node process) then exit current server
 export function spawnUpdaterAndExit(packageName = UPDATER_CONFIG.npmPackageName) {
+  refuseInExperimental("spawnUpdaterAndExit");
   const updaterPath = ensureRuntimeUpdater(resolveBundledUpdaterPath());
   const isTray = process.env.TRAY_MODE === "1";
   const relaunch = resolveRelaunchCommand();

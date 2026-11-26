@@ -11,6 +11,7 @@ import { gatewayEnv, resolveIsolation, resolvePort, IsolationError, PortConflict
 import { loadOrCreateSecrets } from "./secrets.mjs";
 import { GatewaySupervisor, resolveRuntimeDir } from "./gateway-supervisor.mjs";
 import { initialStatus, refreshStatus } from "./ui/status-model.mjs";
+import { checkExperimentalRouteBlocks, summarize } from "./security-check.mjs";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -47,6 +48,20 @@ export async function boot({ env = process.env, headless = false } = {}) {
   });
 
   const health = await supervisor.start();
+
+  // The staged gateway must not expose self-update / cross-process kill routes.
+  // Check once per boot so a stale runtime is caught before the window opens.
+  const guard = summarize(await checkExperimentalRouteBlocks({ baseUrl: `http://127.0.0.1:${port}` }));
+  if (guard.failures.length) {
+    await supervisor.stop();
+    throw new IsolationError(
+      `Experimental route guard failed (${guard.failures
+        .map((f) => `${f.name}=${f.status}`)
+        .join(", ")}). The staged runtime predates the safety build; restage it with "npm run desktop:stage".`,
+      { failures: guard.failures }
+    );
+  }
+
   const status = initialStatus({ port, dataDir: isolation.dataDir, runtimeDir });
   const next = await refreshStatus(status);
   writeBootRecord(isolation.logDir, {

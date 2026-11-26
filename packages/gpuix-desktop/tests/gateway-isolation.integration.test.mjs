@@ -15,6 +15,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { gatewayEnv, resolveIsolation, resolvePort } from "../src/config.mjs";
 import { GatewaySupervisor, resolveRuntimeDir } from "../src/gateway-supervisor.mjs";
 import { loadOrCreateSecrets } from "../src/secrets.mjs";
+import {
+  checkAuthenticatedLanMockFlow,
+  checkExperimentalRouteBlocks,
+  checkUnauthenticatedLanRejection,
+  summarize,
+} from "../src/security-check.mjs";
+import { assertIsolationHeld, snapshotDir } from "../src/isolation-proof.mjs";
 
 const packageRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
@@ -39,6 +46,8 @@ async function freePort() {
   return port;
 }
 
+// Uses the same snapshot format as isolation-proof.mjs so the two are comparable;
+// a basename-only format would report a false "gained db\\data.sqlite".
 function snapshot(dir) {
   try {
     return fs
@@ -47,7 +56,7 @@ function snapshot(dir) {
       .map((entry) => path.join(entry.parentPath ?? entry.path, entry.name))
       .map((file) => {
         const stat = fs.statSync(file, { throwIfNoEntry: false });
-        return stat ? `${path.basename(file)}:${stat.size}:${stat.mtimeMs}` : null;
+        return stat ? `${path.relative(dir, file)}:${stat.size}:${stat.mtimeMs}` : null;
       })
       .filter(Boolean)
       .sort();
@@ -104,6 +113,20 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     });
     expect(settings.ok).toBe(true);
 
+    // Self-update / cross-process kill routes must be refused on the staged build.
+    const blocks = await checkExperimentalRouteBlocks({ baseUrl: `http://127.0.0.1:${port}` });
+    expect(summarize(blocks).failures).toEqual([]);
+
+    // Unauthenticated access must still be rejected; an authenticated LAN-style
+    // session must still work and prove DB-backed writes on the isolated DB.
+    const unauth = await checkUnauthenticatedLanRejection({ baseUrl: `http://127.0.0.1:${port}` });
+    expect(summarize(unauth).failures).toEqual([]);
+    const auth = await checkAuthenticatedLanMockFlow({
+      baseUrl: `http://127.0.0.1:${port}`,
+      password: secrets.initialPassword,
+    });
+    expect(summarize(auth).failures).toEqual([]);
+
     await supervisor.stop();
 
     // 1. Gateway state landed in the isolated data dir and nowhere else.
@@ -111,10 +134,15 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(isolatedFiles.some((f) => f.includes("db"))).toBe(true);
     expect(snapshot(isolation.logDir).some((f) => f.startsWith("gateway.log"))).toBe(true);
 
-    // 2. The installed app's data dir is byte-for-byte untouched.
+    // 2. The installed app's data dir is byte-for-byte untouched, and the
+    //    gateway's DB really is the isolated one.
     expect(snapshot(sharedFixture)).toEqual(sharedSnapshotBefore);
     expect(fs.readFileSync(path.join(sharedFixture, "db", "data.sqlite"), "utf8")).toBe("installed-app-sentinel");
-  }, 180_000);
+    expect(() =>
+      assertIsolationHeld({ isolation, sharedDataDir: sharedFixture, sharedBefore: sharedSnapshotBefore })
+    ).not.toThrow();
+    expect(snapshotDir(isolation.dataDir)).toEqual(expect.arrayContaining([expect.stringMatching(/^db[\\/]/)]));
+  }, 240_000);
 
   it("refuses to start when the experimental port is occupied, leaving the occupant running", async () => {
     const occupant = net.createServer().listen(0, "127.0.0.1");

@@ -3,6 +3,7 @@ import { getSettings, validateApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
 import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";
+import { blockedExperimentalPath, EXPERIMENTAL_BLOCK_MESSAGE } from "@/lib/experimentalSafety";
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
 const CLI_TOKEN_SALT = "9r-cli-auth";
@@ -210,6 +211,12 @@ export const __test__ = {
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
+
+  // Experimental desktop: refuse self-update / cross-process kill routes outright,
+  // even for an authenticated caller. They would act on the installed app.
+  if (blockedExperimentalPath(pathname)) {
+    return NextResponse.json({ error: EXPERIMENTAL_BLOCK_MESSAGE }, { status: 403 });
+  }
 
   // Local-only gate for spawn-capable / host-secret routes.
   if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
