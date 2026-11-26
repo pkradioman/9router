@@ -154,6 +154,14 @@ function createTray() {
     { type: "separator" },
     { label: "Quit 9Router", click: quit },
   ]);
+  if (process.platform === "linux") {
+    tray.setContextMenu(menu);
+    tray.on("click", () => {
+      if (win) { win.show(); win.focus(); } else createWindow();
+    });
+    logLine("tray ready", `port=${port}`);
+    return;
+  }
   // Drive the menu from our own click handlers instead of relying on the
   // platform default: on Windows the default path is tied to the tray's owner
   // window and silently does nothing when that window is not in the foreground.
