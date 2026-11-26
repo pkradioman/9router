@@ -32,8 +32,10 @@ await build({
     "@gpuix/react",
     "react",
     "react-dom",
+    "systray",
   ],
 });
 
+fs.copyFileSync(path.join(packageRoot, "..", "..", "electron", "icon.ico"), path.join(packageRoot, "dist", "icon.ico"));
 const size = fs.statSync(outfile).size;
 console.log(`[build] ${path.relative(packageRoot, outfile)} ${(size / 1024).toFixed(1)} KiB`);

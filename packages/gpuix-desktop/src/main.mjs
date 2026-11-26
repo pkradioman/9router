@@ -12,6 +12,7 @@ import { loadOrCreateSecrets } from "./secrets.mjs";
 import { GatewaySupervisor, resolveRuntimeDir } from "./gateway-supervisor.mjs";
 import { initialStatus, refreshStatus } from "./ui/status-model.mjs";
 import { checkExperimentalRouteBlocks, summarize } from "./security-check.mjs";
+import { TrayController } from "./tray-controller.mjs";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -85,6 +86,10 @@ async function shutdown(supervisor, code) {
 }
 
 async function main() {
+  if (process.argv.includes("--gpuix-window")) {
+    await showWindow(JSON.parse(process.env.GPU_UIX_WINDOW_STATUS));
+    return;
+  }
   const headless = process.env.NINEROUTER_GPU_UIX_HEADLESS === "1";
   let session;
   try {
@@ -113,6 +118,7 @@ async function main() {
     });
   }
   supervisor.child?.once("exit", (code) => {
+    if (supervisor.stopping) return;
     logBoot("gateway exited unexpectedly", `code=${code}`);
     void shutdown(supervisor, 1);
   });
@@ -131,7 +137,33 @@ async function main() {
     return;
   }
 
-  // Imported lazily so headless runs never load the native renderer.
+  const systray = await import("systray");
+  const SysTray = systray.default.default || systray.default;
+  const icon = fs.readFileSync(path.join(packageRoot, "dist", "icon.ico")).toString("base64");
+  let closing = false;
+  const controller = new TrayController({
+    createTray: (options) => new SysTray(options),
+    icon,
+    windowEntry: process.argv[1],
+    status,
+    onQuit: () => {
+      if (closing) return;
+      closing = true;
+      controller.stop();
+      void shutdown(supervisor, 0);
+    },
+  });
+  process.on("exit", () => controller.stop());
+  try {
+    await controller.start();
+  } catch (error) {
+    controller.stop();
+    await supervisor.stop();
+    throw error;
+  }
+}
+
+async function showWindow(status) {
   const React = (await import("react")).default;
   const { render } = await import("@gpuix/react");
   const { StatusPanel } = await import("./ui/StatusPanel.mjs");
