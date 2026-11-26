@@ -86,6 +86,20 @@ describe("resolveIsolation", () => {
     ).toThrow(/overlaps the installed application/);
   });
 
+  it("refuses a junction into installed data before creating any child", () => {
+    const root = tempRoot();
+    const env = { APPDATA: path.join(root, "roaming"), LOCALAPPDATA: path.join(root, "local") };
+    const shared = sharedAppPaths(env);
+    fs.mkdirSync(shared.dataDir, { recursive: true });
+    const alias = path.join(root, "alias");
+    fs.symlinkSync(shared.dataDir, alias, process.platform === "win32" ? "junction" : "dir");
+    expect(() => resolveIsolation({
+      env,
+      paths: { dataDir: path.join(alias, "new-data"), logDir: path.join(root, "logs"), cacheDir: path.join(root, "cache") },
+    })).toThrow(IsolationError);
+    expect(fs.existsSync(path.join(shared.dataDir, "new-data"))).toBe(false);
+  });
+
   it("fails closed when a path is not writable instead of falling back", () => {
     const root = tempRoot();
     const file = path.join(root, "not-a-dir");

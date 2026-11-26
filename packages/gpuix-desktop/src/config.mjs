@@ -37,7 +37,26 @@ function envDir(env, key, fallback) {
 }
 
 function normalize(value) {
-  const resolved = path.resolve(value);
+  const missing = [];
+  let existing = path.resolve(value);
+  while (true) {
+    try {
+      fs.lstatSync(existing);
+      break;
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      const parent = path.dirname(existing);
+      if (parent === existing) throw error;
+      missing.unshift(path.basename(existing));
+      existing = parent;
+    }
+  }
+  let resolved;
+  try {
+    resolved = path.join(fs.realpathSync(existing), ...missing);
+  } catch (error) {
+    throw new IsolationError(`Cannot resolve isolated path ${value}.`, { cause: error.message });
+  }
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
