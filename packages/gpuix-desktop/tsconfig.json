@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@gpuix/react",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.mjs", "tests/**/*.mjs", "scripts/**/*.mjs"]
+}

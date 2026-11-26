@@ -1,0 +1,35 @@
+{
+  "name": "@9router/gpuix-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Experimental native GPUIX shell for 9Router, supervised against an isolated bundled gateway runtime.",
+  "type": "module",
+  "main": "dist/main.mjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "start": "node dist/main.mjs",
+    "gateway:stage": "node scripts/stage-gateway.mjs",
+    "dev": "node scripts/build.mjs && node dist/main.mjs"
+  },
+  "dependencies": {
+    "@gpuix/native": "0.11.0",
+    "@gpuix/react": "0.11.0",
+    "react": "19.2.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^3.2.4"
+  }
+}

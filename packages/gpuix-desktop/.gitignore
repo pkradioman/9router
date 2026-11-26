@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+resources/gateway/
+*.log
+
+# Root .gitignore ignores lockfiles; this package pins GPUIX to exact versions,
+# so its lockfile must be committed for reproducible installs.
+!package-lock.json
