@@ -813,6 +813,40 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("Enabled");
   });
 
+  it("changes the dashboard password and rejects a mismatch", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-profile");
+    await settle(root);
+
+    const type = async (testId, keys) => {
+      const input = root.renderer.findByTestId(testId);
+      expect(input).toBeTruthy();
+      const bounds = root.renderer.getElementBounds(input.id);
+      root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      root.renderer.nativeSimulateKeystrokes(input.id, keys);
+      await settle(root);
+    };
+
+    await type("profile-current-password", "o l d");
+    await type("profile-new-password", "s e c r e t");
+    await type("profile-confirm-password", "s e c r e t");
+    click(root.renderer, "profile-change-password");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({ newPassword: "secret", currentPassword: "old" });
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Password updated.");
+
+    await type("profile-new-password", "x");
+    await type("profile-confirm-password", "y");
+    click(root.renderer, "profile-change-password");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("New passwords do not match.");
+    expect(api.patchSettings).toHaveBeenCalledTimes(1);
+  });
+
   it("loads translator step files read-only", async () => {
     const api = createFakeApi();
     const root = createTestRoot({ width: 1080, height: 720 });

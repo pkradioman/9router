@@ -287,6 +287,16 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     ).toBe(200);
     expect((await call("/api/settings")).body.comboStrategies.gpuixprobe).toBeUndefined();
 
+    // Dashboard password: hashed by the gateway and written to the isolated DB.
+    // This runs last because a fresh isolated DB has no prior password to restore;
+    // the fixture directory is disposable.
+    const passwordChange = await call("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ currentPassword: "123456", newPassword: "gpuix-probe-pass" }),
+    });
+    expect(passwordChange.status).toBe(200);
+    expect((await call("/api/settings")).body.hasPassword).toBe(true);
+
     await supervisor.stop();
 
     // 1. Gateway state landed in the isolated data dir and nowhere else.
