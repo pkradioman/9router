@@ -47,6 +47,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     requireLogin: true,
     requireApiKey: true,
     comboStrategies: {},
+    providerStrategies: {},
     outboundProxyEnabled: false,
     outboundProxyUrl: "",
     outboundNoProxy: "",
@@ -414,6 +415,28 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
       priority: 1,
       proxyPoolId: "pp9",
     });
+  });
+
+  it("sets and clears a provider round-robin override", async () => {
+    const api = createFakeApi([], [
+      { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },
+      { id: "p2", name: "Backup", provider: "openai", authType: "apikey", isActive: true },
+    ]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    click(root.renderer, "provider-strategy-openai-rr");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      providerStrategies: { openai: { fallbackStrategy: "round-robin", stickyRoundRobinLimit: 1 } },
+    });
+
+    click(root.renderer, "provider-strategy-openai-global");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({ providerStrategies: {} });
   });
 
   it("tests provider connections and shows the result", async () => {

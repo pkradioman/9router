@@ -236,6 +236,15 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect((await call("/api/settings")).body.capacityAdapter.vision.models).toEqual(["openai/gpt-4o"]);
     expect((await call("/api/settings", { method: "PATCH", body: JSON.stringify({ capacityAdapter: {} }) })).status).toBe(200);
 
+    // Provider strategy overrides sit in settings.providerStrategies.
+    const strategySave = await call("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ providerStrategies: { openai: { fallbackStrategy: "round-robin", stickyRoundRobinLimit: 2 } } }),
+    });
+    expect(strategySave.status).toBe(200);
+    expect((await call("/api/settings")).body.providerStrategies.openai.stickyRoundRobinLimit).toBe(2);
+    expect((await call("/api/settings", { method: "PATCH", body: JSON.stringify({ providerStrategies: {} }) })).status).toBe(200);
+
     // Combo presets preview is read-only and does not touch providers for the
     // "claude" source.
     const presets = await call("/api/combos/presets?source=claude");

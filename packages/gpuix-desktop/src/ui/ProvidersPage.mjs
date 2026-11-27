@@ -310,6 +310,8 @@ export function ProvidersPage({ api }) {
   const [apiKey, setApiKey] = React.useState("");
   const [name, setName] = React.useState("");
   const [nodes, setNodes] = React.useState(null);
+  const [strategies, setStrategies] = React.useState({});
+  const [stickyDraft, setStickyDraft] = React.useState({});
   const [nodeName, setNodeName] = React.useState("");
   const [nodePrefix, setNodePrefix] = React.useState("");
   const [nodeBaseUrl, setNodeBaseUrl] = React.useState("");
@@ -391,6 +393,13 @@ export function ProvidersPage({ api }) {
     loadNodes();
   }, [loadNodes]);
 
+  React.useEffect(() => {
+    api
+      .getSettings()
+      .then((settings) => setStrategies((settings && settings.providerStrategies) || {}))
+      .catch(() => setStrategies({}));
+  }, [api]);
+
   const createNode = () => {
     if (!nodeName.trim() || !nodePrefix.trim() || !nodeBaseUrl.trim()) {
       setError("Node needs a name, a prefix and a base URL.");
@@ -431,6 +440,29 @@ export function ProvidersPage({ api }) {
     api
       .updateProviderNode(node.id, patch)
       .then(loadNodes)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
+  // Provider strategy override lives in settings.providerStrategies keyed by
+  // provider id; an empty override removes the entry and restores the global.
+  const saveStrategy = (providerId, strategy, sticky) => {
+    const updated = { ...strategies };
+    if (!strategy) {
+      delete updated[providerId];
+    } else {
+      const override = { fallbackStrategy: strategy };
+      if (strategy === "round-robin") {
+        const limit = Number(sticky);
+        override.stickyRoundRobinLimit = Number.isFinite(limit) && limit > 0 ? limit : 1;
+      }
+      updated[providerId] = override;
+    }
+    setBusy(true);
+    setError("");
+    api
+      .patchSettings({ providerStrategies: updated })
+      .then((next) => setStrategies((next && next.providerStrategies) || updated))
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
   };
@@ -632,6 +664,85 @@ export function ProvidersPage({ api }) {
         { style: { color: theme.muted, fontSize: 11 } },
         "Chat-type OpenAI-compatible nodes only; responses routing and per-node options are not native yet."
       )
-    ) : null
+    ) : null,
+    h(
+      "div",
+      {
+        testId: "provider-strategies",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: theme.panel,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 10,
+          padding: 16,
+          gap: 8,
+        },
+      },
+      h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Provider strategies"),
+      h(
+        "text",
+        { style: { color: theme.muted, fontSize: 10 } },
+        "Round-robin rotates connections of this provider within the sticky window; Global removes the override."
+      ),
+      providers === null
+        ? h("text", { style: { color: theme.muted, fontSize: 12 } }, "Loading providers...")
+        : [...new Set(providers.map((item) => item.provider).filter(Boolean))].map((providerId) => {
+            const override = strategies[providerId] || {};
+            const roundRobin = override.fallbackStrategy === "round-robin";
+            const chip = (testId, label, onClick, color) =>
+              h(
+                "text",
+                {
+                  testId,
+                  role: "button",
+                  onClick: busy ? null : onClick,
+                  style: { color: busy ? theme.muted : color, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                },
+                label
+              );
+            const stickyValue =
+              stickyDraft[providerId] !== undefined
+                ? stickyDraft[providerId]
+                : String(override.stickyRoundRobinLimit ?? 1);
+            return h(
+              "div",
+              {
+                key: providerId,
+                testId: `provider-strategy-${providerId}`,
+                style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+              },
+              h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1, minWidth: 120 } }, providerId),
+              chip(
+                `provider-strategy-${providerId}-global`,
+                "Global",
+                () => saveStrategy(providerId, null),
+                roundRobin ? theme.muted : theme.ok
+              ),
+              chip(
+                `provider-strategy-${providerId}-rr`,
+                "Round robin",
+                () => saveStrategy(providerId, "round-robin", stickyValue),
+                roundRobin ? theme.ok : theme.muted
+              ),
+              h("input", {
+                testId: `provider-strategy-${providerId}-sticky`,
+                "aria-label": "Sticky round-robin limit",
+                value: stickyValue,
+                onChange: (event) =>
+                  setStickyDraft((value) => ({ ...value, [providerId]: event.value ?? "" })),
+                onSubmit: () => saveStrategy(providerId, "round-robin", stickyValue),
+                style: { width: 70, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+              }),
+              chip(
+                `provider-strategy-${providerId}-sticky-save`,
+                "Save sticky",
+                () => saveStrategy(providerId, "round-robin", stickyValue),
+                theme.muted
+              )
+            );
+          })
+    )
   );
 }
