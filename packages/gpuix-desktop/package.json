@@ -17,6 +17,7 @@
     "gateway:stage": "node scripts/stage-gateway.mjs",
     "verify:gateway": "node scripts/verify-gateway.mjs",
     "pack:win": "node scripts/pack-win.mjs",
+    "installer:win": "node scripts/installer-win.mjs",
     "dev": "node scripts/build.mjs && node dist/main.mjs"
   },
   "dependencies": {

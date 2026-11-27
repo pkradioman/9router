@@ -4,7 +4,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", "resources/**"],
+    ignores: ["dist/**", "dist-gpuix/**", "node_modules/**", "coverage/**", "resources/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
