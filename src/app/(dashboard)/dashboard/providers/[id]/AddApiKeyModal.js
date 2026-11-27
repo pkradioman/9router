@@ -44,7 +44,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     deployment: "",
     organization: "",
   });
-  const [cloudflareData, setCloudflareData] = useState({ accountId: "" });
+  const [cloudflareData, setCloudflareData] = useState({ accountId: "", gatewayId: "" });
   const [bedrockData, setBedrockData] = useState({
     profile: "",
     region: "",
@@ -102,7 +102,10 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
       };
     }
     if (isCloudflareAi) {
-      return { accountId: cloudflareData.accountId };
+      const data = { accountId: cloudflareData.accountId.trim() };
+      const gatewayId = cloudflareData.gatewayId.trim();
+      if (gatewayId) data.gatewayId = gatewayId;
+      return data;
     }
     if (usesAwsCredentialForm) {
       // Only send what the user filled in: an empty `profile` would otherwise select profile
@@ -205,6 +208,10 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     let failed = 0;
     for (const entry of plan) {
       try {
+        // Gateway ID is account-wide, so the form value applies to every bulk line.
+        const psd = { ...(entry.providerSpecificData || {}) };
+        const bulkGatewayId = isCloudflareAi ? cloudflareData.gatewayId.trim() : "";
+        if (bulkGatewayId) psd.gatewayId = bulkGatewayId;
         // Validate each key before saving so bulk-added connections get a
         // real status (active/unknown) like single adds, instead of a
         // hardcoded "unknown" that never flips until a manual test.
@@ -213,7 +220,11 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
           const vres = await fetch("/api/providers/validate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ provider, apiKey: entry.apiKey }),
+            body: JSON.stringify({
+              provider,
+              apiKey: entry.apiKey,
+              ...(Object.keys(psd).length ? { providerSpecificData: psd } : {}),
+            }),
           });
           const vdata = await vres.json().catch(() => ({}));
           isValid = !!vdata.valid;
@@ -229,7 +240,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             name: entry.name,
             priority: 1,
             testStatus: isValid ? "active" : "unknown",
-            ...(entry.providerSpecificData ? { providerSpecificData: entry.providerSpecificData } : {}),
+            ...(Object.keys(psd).length ? { providerSpecificData: psd } : {}),
           }),
         });
         if (res.ok) success++;
@@ -399,14 +410,23 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         {isCloudflareAi && (
           <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
             <h3 className="font-semibold mb-3 text-sm">Cloudflare Workers AI</h3>
-            <Input
-              label="Account ID"
-              value={cloudflareData.accountId}
-              onChange={(e) => setCloudflareData({ ...cloudflareData, accountId: e.target.value })}
-              placeholder="abc123def456..."
-            />
+            <div className="flex flex-col gap-3">
+              <Input
+                label="Account ID"
+                value={cloudflareData.accountId}
+                onChange={(e) => setCloudflareData({ ...cloudflareData, accountId: e.target.value })}
+                placeholder="abc123def456..."
+              />
+              <Input
+                label="AI Gateway ID (optional)"
+                value={cloudflareData.gatewayId}
+                onChange={(e) => setCloudflareData({ ...cloudflareData, gatewayId: e.target.value })}
+                placeholder="my-gateway"
+                hint="Route requests through an AI Gateway. Required for custom providers (custom-{slug}/...) and BYOK keys."
+              />
+            </div>
             <p className="text-xs text-text-muted mt-2">
-              Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">dash.cloudflare.com</a>
+              Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">dash.cloudflare.com</a>; gateways are under AI → AI Gateway.
             </p>
           </div>
         )}

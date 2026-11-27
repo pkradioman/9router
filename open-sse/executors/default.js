@@ -201,6 +201,15 @@ export class DefaultExecutor extends BaseExecutor {
       return `${this.config.baseUrl}${this.config.urlSuffix}`;
     }
     const url = this.config.baseUrl;
+    // Optional secondary endpoint behind the same credentials (e.g. Cloudflare AI Gateway,
+    // the only route to custom providers and BYOK keys).
+    const gateway = this.config.aiGateway;
+    const gatewayId = credentials?.providerSpecificData?.gatewayId;
+    if (gateway?.baseUrl && gatewayId) {
+      const accountId = credentials?.providerSpecificData?.accountId;
+      if (!accountId) throw new Error(`${this.provider} requires accountId in providerSpecificData`);
+      return gateway.baseUrl.replace("{accountId}", accountId).replace("{gatewayId}", gatewayId);
+    }
     if (url?.includes("{accountId}")) {
       const accountId = credentials?.providerSpecificData?.accountId;
       if (!accountId) throw new Error(`${this.provider} requires accountId in providerSpecificData`);
@@ -227,6 +236,14 @@ export class DefaultExecutor extends BaseExecutor {
     // Hooks run BEFORE auth so dynamic overlays can't clobber the token.
     for (const hook of desc.hooks || []) HEADER_HOOKS[hook]?.(headers, credentials);
     applyAuth(headers, desc, credentials);
+
+    // AI Gateway mode needs its own auth header (new gateways reject requests without
+    // `cf-aig-authorization`); the provider token doubles as the gateway token.
+    const gatewayAuthHeader = this.config.aiGateway?.authHeader;
+    if (gatewayAuthHeader && credentials?.providerSpecificData?.gatewayId) {
+      const token = credentials?.apiKey || credentials?.accessToken;
+      if (token) headers[gatewayAuthHeader] = `Bearer ${token}`;
+    }
 
     // anthropic-compatible-* nodes serving a real Claude model sit in front of
     // Anthropic itself (a rotating multi-account proxy, a corporate gateway),

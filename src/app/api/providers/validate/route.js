@@ -14,6 +14,8 @@ import {
   isNousApiKeyAccepted,
 } from "open-sse/services/nous.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
+import { getDisabledModels, getCustomModels } from "@/lib/db";
+import { resolveCloudflareTestTarget, cloudflareProbeError } from "@/shared/utils/cloudflareTestTarget";
 
 // Probe a webSearch/webFetch provider using its searchConfig/fetchConfig.
 // Returns true if API key is accepted (status !== 401 && !== 403).
@@ -196,25 +198,27 @@ export async function POST(request) {
 
       if (provider === "cloudflare-ai") {
         const { providerSpecificData } = body;
-        const accountId = providerSpecificData?.accountId;
-        if (!accountId) {
-          return NextResponse.json({ valid: false, error: "Missing Account ID" });
+        const [disabledModels, customModels] = await Promise.all([getDisabledModels(), getCustomModels()]);
+        const target = resolveCloudflareTestTarget({
+          providerSpecificData: providerSpecificData || {},
+          apiKey,
+          disabledModels,
+          customModels,
+        });
+        if (target.error) {
+          return NextResponse.json({ valid: false, error: target.error });
         }
-        const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
-        const cfRes = await fetch(url, {
+        const cfRes = await fetch(target.url, {
           method: "POST",
-          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          headers: target.headers,
           body: JSON.stringify({
-            model: getDefaultModel("cloudflare-ai"),
+            model: target.model,
             messages: [{ role: "user", content: "test" }],
             max_tokens: 1,
           }),
         });
-        isValid = cfRes.status !== 401 && cfRes.status !== 403 && cfRes.status !== 404;
-        return NextResponse.json({
-          valid: isValid,
-          error: isValid ? null : "Invalid API token or Account ID",
-        });
+        const probeError = cloudflareProbeError(cfRes.status, target.model);
+        return NextResponse.json({ valid: !probeError, error: probeError });
       }
 
       if (provider === "azure") {

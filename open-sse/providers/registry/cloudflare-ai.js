@@ -25,6 +25,12 @@ export default {
   transport: {
     baseUrl: "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1/chat/completions",
     thinkingFormat: "openai",
+    // Workers AI custom providers (custom-{slug}) and BYOK keys only exist behind the AI
+    // Gateway; used when providerSpecificData.gatewayId is set.
+    aiGateway: {
+      baseUrl: "https://gateway.ai.cloudflare.com/v1/{accountId}/{gatewayId}/compat/chat/completions",
+      authHeader: "cf-aig-authorization",
+    },
   },
   models: [
     { id: "@cf/cloudflare/clef-flash", name: "Clef Flash", kind: "systemone", upstreamModelId: "clef-flash" },

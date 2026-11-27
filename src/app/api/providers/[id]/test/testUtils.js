@@ -32,6 +32,8 @@ import {
 } from "@/lib/oauth/constants/oauth";
 import { buildClineHeaders } from "@/shared/utils/clineAuth";
 import { hasWebIdentityProbe, fetchWebIdentity } from "open-sse/services/webIdentity.js";
+import { getDisabledModels, getCustomModels } from "@/lib/db";
+import { resolveCloudflareTestTarget, cloudflareProbeError } from "@/shared/utils/cloudflareTestTarget";
 
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG = {
@@ -616,16 +618,21 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
       }
       case "cloudflare-ai": {
         const psd = connection.providerSpecificData || {};
-        const accountId = psd.accountId;
-        if (!accountId) return { valid: false, error: "Missing Account ID" };
-        const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
-        const res = await fetchWithConnectionProxy(url, {
+        const [disabledModels, customModels] = await Promise.all([getDisabledModels(), getCustomModels()]);
+        const target = resolveCloudflareTestTarget({
+          providerSpecificData: psd,
+          apiKey: connection.apiKey,
+          disabledModels,
+          customModels,
+        });
+        if (target.error) return { valid: false, error: target.error };
+        const res = await fetchWithConnectionProxy(target.url, {
           method: "POST",
-          headers: { "Authorization": `Bearer ${connection.apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: getDefaultModel("cloudflare-ai"), messages: [{ role: "user", content: "test" }], max_tokens: 1 }),
+          headers: target.headers,
+          body: JSON.stringify({ model: target.model, messages: [{ role: "user", content: "test" }], max_tokens: 1 }),
         }, effectiveProxy);
-        const valid = res.status !== 401 && res.status !== 403 && res.status !== 404;
-        return { valid, error: valid ? null : "Invalid API token or Account ID" };
+        const probeError = cloudflareProbeError(res.status, target.model);
+        return { valid: !probeError, error: probeError };
       }
       case "azure": {
         const psd = connection.providerSpecificData || {};

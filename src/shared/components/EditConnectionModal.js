@@ -21,7 +21,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
     deployment: "",
     organization: "",
   });
-  const [cloudflareData, setCloudflareData] = useState({ accountId: "" });
+  const [cloudflareData, setCloudflareData] = useState({ accountId: "", gatewayId: "" });
   const [awsData, setAwsData] = useState({ profile: "", region: "", accessKeyId: "", sessionToken: "" });
   const [clearAwsSessionToken, setClearAwsSessionToken] = useState(false);
   const [region, setRegion] = useState("");
@@ -48,7 +48,10 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         });
       }
       if (connection.provider === "cloudflare-ai" && connection.providerSpecificData) {
-        setCloudflareData({ accountId: connection.providerSpecificData.accountId || "" });
+        setCloudflareData({
+          accountId: connection.providerSpecificData.accountId || "",
+          gatewayId: connection.providerSpecificData.gatewayId || "",
+        });
       }
       if (AI_PROVIDERS?.[connection.provider]?.credentialForm === "aws") {
         const psd = connection.providerSpecificData || {};
@@ -189,7 +192,14 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         };
       }
       if (isCloudflareAi) {
-        updates.providerSpecificData = { accountId: cloudflareData.accountId };
+        const gatewayId = cloudflareData.gatewayId.trim();
+        // Keep proxy/other psd keys: updateProviderConnection replaces providerSpecificData.
+        updates.providerSpecificData = {
+          ...(connection.providerSpecificData || {}),
+          accountId: cloudflareData.accountId.trim(),
+        };
+        if (gatewayId) updates.providerSpecificData.gatewayId = gatewayId;
+        else delete updates.providerSpecificData.gatewayId;
       }
       if (usesAwsCredentialForm) {
         updates.providerSpecificData = buildAwsSpecificData();
@@ -286,6 +296,27 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
                 onChange={(e) => setAzureData({ ...azureData, organization: e.target.value })}
                 placeholder="Organization ID"
                 hint="Required for billing"
+              />
+            </div>
+          </div>
+        )}
+
+        {isCloudflareAi && (
+          <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
+            <h3 className="font-semibold mb-3 text-sm">Cloudflare Workers AI</h3>
+            <div className="flex flex-col gap-3">
+              <Input
+                label="Account ID"
+                value={cloudflareData.accountId}
+                onChange={(e) => setCloudflareData({ ...cloudflareData, accountId: e.target.value })}
+                placeholder="abc123def456..."
+              />
+              <Input
+                label="AI Gateway ID (optional)"
+                value={cloudflareData.gatewayId}
+                onChange={(e) => setCloudflareData({ ...cloudflareData, gatewayId: e.target.value })}
+                placeholder="my-gateway"
+                hint="Route requests through an AI Gateway. Required for custom providers (custom-{slug}/...) and BYOK keys."
               />
             </div>
           </div>
