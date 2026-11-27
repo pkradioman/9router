@@ -19,6 +19,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
   const boundProxyPool = boundProxyPoolId ? proxyPoolMap.get(boundProxyPoolId) : null;
   const hasLegacyProxy = connection.providerSpecificData?.connectionProxyEnabled === true && !!connection.providerSpecificData?.connectionProxyUrl;
   const hasAnyProxy = !!boundProxyPoolId || hasLegacyProxy;
+  const gatewayId = connection.providerSpecificData?.gatewayId || null;
   const proxyDisplayText = boundProxyPool
     ? `Pool: ${boundProxyPool.name}`
     : boundProxyPoolId
@@ -221,6 +222,13 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
               <Badge variant={proxyBadgeVariant} size="sm">
                 Proxy
               </Badge>
+            )}
+            {gatewayId && (
+              <Tooltip text={`Routed through AI Gateway "${gatewayId}"`}>
+                <Badge variant="info" size="sm">
+                  via gateway
+                </Badge>
+              </Tooltip>
             )}
             {isCooldown && connection.isActive !== false && <CooldownTimer until={modelLockUntil} />}
             {connection.lastError && connection.isActive !== false && (
