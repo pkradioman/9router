@@ -16,6 +16,7 @@ import { assertRuntimeGuard } from "./runtime-guard.mjs";
 import { checkExperimentalRouteBlocks, summarize } from "./security-check.mjs";
 import { askForPort } from "./port-prompt.mjs";
 import { acquireSingleInstance } from "./single-instance.mjs";
+import { runFirstImport, DEFAULT_SOURCE_URL } from "./import-client.mjs";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -40,6 +41,9 @@ export async function boot({
   headless = false,
   onPortLost = null,
   verifyBlockedRoutes = true,
+  importPassword = null,
+  importSourceUrl = null,
+  fetchImpl = fetch,
 } = {}) {
   const isolation = resolveIsolation({ env });
   const port = resolvePort(env);
@@ -49,6 +53,24 @@ export async function boot({
   assertRuntimeGuard(runtimeDir);
 
   logBoot("isolated", `dataDir=${isolation.dataDir} port=${port}`);
+
+  // Before the gateway starts: seed the isolated DB from the installed app's own
+  // snapshot. Runs at most once (marker) and fails closed — a failed import
+  // leaves no DB and no marker, and the shell exits instead of booting empty.
+  let importResult = null;
+  if (importPassword) {
+    try {
+      importResult = await runFirstImport({
+        dataDir: isolation.dataDir,
+        password: importPassword,
+        baseUrl: importSourceUrl || DEFAULT_SOURCE_URL,
+        fetchImpl,
+        log: (message, detail) => logBoot(message, detail),
+      });
+    } catch (error) {
+      throw new IsolationError(`Database import failed: ${error?.message || error}`, { port });
+    }
+  }
 
   const supervisor = new GatewaySupervisor({
     runtimeDir,
@@ -106,7 +128,7 @@ export async function boot({
     version: next.version,
   });
 
-  return { supervisor, status: next, isolation, port, runtimeDir, headless };
+  return { supervisor, status: next, isolation, port, runtimeDir, headless, importResult };
 }
 
 async function shutdown(supervisor, code) {
@@ -115,6 +137,20 @@ async function shutdown(supervisor, code) {
   } finally {
     process.exit(code);
   }
+}
+
+async function readPasswordLine() {
+  if (process.stdin.isTTY) {
+    logBoot("reading the installed app password from stdin; it will be echoed in a terminal — pipe it instead");
+  }
+  const chunks = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.from(chunk));
+    if (chunks.reduce((n, c) => n + c.length, 0) > 4096) break;
+  }
+  const line = Buffer.concat(chunks).toString("utf8").split(/\r?\n/, 1)[0];
+  if (!line) throw new IsolationError("No password was provided on stdin for --gpuix-import.");
+  return line;
 }
 
 async function main() {
@@ -146,13 +182,15 @@ async function main() {
   if (!instance.primary) return;
   let session;
   let env = process.env;
+  const importPassword = process.argv.includes("--gpuix-import") ? await readPasswordLine() : null;
+  const importSourceUrl = process.env.GPU_UIX_IMPORT_FROM || null;
   const onPortLost = (error, supervisor) => {
     logBoot("port ownership lost:", error.message);
     void shutdown(supervisor, 1);
   };
   while (!session) {
     try {
-      session = await boot({ env, headless, onPortLost });
+      session = await boot({ env, headless, onPortLost, importPassword, importSourceUrl });
     } catch (error) {
       if (error instanceof PortConflictError) {
         logBoot(error.message);
@@ -174,7 +212,7 @@ async function main() {
     }
   }
 
-  const { supervisor, status, isolation } = session;
+  const { supervisor, status, isolation, importResult } = session;
 
   // Installed before any window exists: GPUIX exits the process when the
   // window loop ends, and this hook is what stops the gateway on that path.
@@ -201,6 +239,7 @@ async function main() {
         baseUrl: status.baseUrl,
         dataDir: isolation.dataDir,
         version: status.version,
+        import: importResult?.status ?? null,
       })
     );
     return;
