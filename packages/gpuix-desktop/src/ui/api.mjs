@@ -75,5 +75,6 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     updateProxyPool: (id, patch) =>
       request(`/api/proxy-pools/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
     deleteProxyPool: (id) => request(`/api/proxy-pools/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    getCliToolStatuses: () => request("/api/cli-tools/all-statuses"),
   };
 }

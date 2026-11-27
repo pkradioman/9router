@@ -150,6 +150,14 @@ describe("createGatewayApi", () => {
     expect(calls[1].init.method).toBe("DELETE");
   });
 
+  it("fetches CLI tool statuses", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ claude: { installed: true } }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getCliToolStatuses()).toEqual({ claude: { installed: true } });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/cli-tools/all-statuses");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

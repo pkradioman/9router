@@ -115,6 +115,12 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       pools = pools.filter((item) => item.id !== id);
       return { success: true };
     }),
+    getCliToolStatuses: vi.fn(async () => ({
+      claude: { installed: true, has9Router: true },
+      codex: { installed: true, has9Router: false },
+      droid: { installed: false },
+      hermes: null,
+    })),
   };
   api.snapshot = () => keys;
   return api;
@@ -411,5 +417,23 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.deleteProxyPool).toHaveBeenCalledWith("pp1");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("No proxy pools yet.");
+  });
+
+  it("shows CLI tool connection status", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-cli-tools");
+    await settle(root);
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Claude Code");
+    expect(painted).toContain("Connected to 9Router");
+    expect(painted).toContain("Codex");
+    expect(painted).toContain("Installed, not connected");
+    expect(painted).toContain("Droid");
+    expect(painted).toContain("Not installed");
+    expect(painted).toContain("Unavailable");
   });
 });

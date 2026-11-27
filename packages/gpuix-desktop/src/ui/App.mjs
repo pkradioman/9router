@@ -13,6 +13,7 @@ import { CombosPage } from "./CombosPage.mjs";
 import { ConsoleLogPage } from "./ConsoleLogPage.mjs";
 import { TokenSaverPage } from "./TokenSaverPage.mjs";
 import { ProxyPoolsPage } from "./ProxyPoolsPage.mjs";
+import { CliToolsPage } from "./CliToolsPage.mjs";
 import { StatusPanel } from "./StatusPanel.mjs";
 
 const h = React.createElement;
@@ -25,7 +26,7 @@ const PAGES = [
   { id: "usage", label: "Usage", enabled: true },
   { id: "quota", label: "Quota Tracker", enabled: false },
   { id: "token-saver", label: "Token Saver", enabled: true },
-  { id: "cli-tools", label: "CLI Tools", enabled: false },
+  { id: "cli-tools", label: "CLI Tools", enabled: true },
   { id: "translator", label: "Translator", enabled: false },
   { id: "console-log", label: "Console Log", enabled: true },
   { id: "proxy-pools", label: "Proxy Pools", enabled: true },
@@ -106,6 +107,7 @@ export function App({ api, status, onRefresh }) {
   else if (page === "console-log") content = h(ConsoleLogPage, { api });
   else if (page === "token-saver") content = h(TokenSaverPage, { api });
   else if (page === "proxy-pools") content = h(ProxyPoolsPage, { api });
+  else if (page === "cli-tools") content = h(CliToolsPage, { api });
   else content = h(EndpointPage, { api, status, onRefresh });
 
   return h(
