@@ -76,6 +76,9 @@ const PROTECTED_API_PATHS = [
 const LOCAL_ONLY_PATHS = [
   "/api/cli-tools/cowork-settings",
   "/api/cli-tools/antigravity-mitm",
+  // Whole-DB snapshot for the experimental desktop import: never reachable
+  // through a tunnel or reverse proxy, only loopback + auth or a CLI token.
+  "/api/settings/database/snapshot",
   "/api/mcp/",
   "/api/tunnel/tailscale-install",
   "/api/tunnel/tailscale-enable",

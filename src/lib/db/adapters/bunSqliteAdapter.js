@@ -1,5 +1,6 @@
 // Bun runtime adapter — uses built-in bun:sqlite (native, fastest under Bun).
 // Loaded only when process.versions.bun is present.
+import fs from "node:fs";
 import { PRAGMA_SQL } from "../schema.js";
 
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
@@ -54,6 +55,13 @@ export async function createBunSqliteAdapter(filePath) {
       return tx();
     },
     checkpoint() { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {} },
+    // Consistent live copy for the experimental desktop import. bun:sqlite has
+    // no file backup API; serialize() returns a complete Buffer of the database.
+    async snapshotFile(destPath) {
+      const data = db.serialize();
+      fs.writeFileSync(destPath, Buffer.isBuffer(data) ? data : Buffer.from(data));
+      return destPath;
+    },
     close() {
       clearInterval(checkpointTimer);
       gracefulClose();

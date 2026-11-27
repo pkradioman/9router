@@ -46,6 +46,13 @@ export function createBetterSqliteAdapter(filePath) {
     exec(sql) { return db.exec(sql); },
     transaction(fn) { return db.transaction(fn)(); },
     checkpoint() { try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {} },
+    // Consistent live copy for the experimental desktop import. better-sqlite3
+    // copies pages through sqlite3_backup_*, so a concurrent writer cannot
+    // produce a torn file and no full DB buffer is held in JS.
+    async snapshotFile(destPath) {
+      await db.backup(destPath);
+      return destPath;
+    },
     close() {
       clearInterval(checkpointTimer);
       gracefulClose();

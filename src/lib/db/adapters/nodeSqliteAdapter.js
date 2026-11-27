@@ -75,6 +75,17 @@ export async function createNodeSqliteAdapter(filePath) {
       }
     },
     checkpoint() { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {} },
+    // Consistent live copy for the experimental desktop import. Node 22.16+
+    // exposes a top-level sqlite.backup(); older 22.x falls back to VACUUM INTO,
+    // which also writes a transactionally consistent file.
+    async snapshotFile(destPath) {
+      if (typeof sqlite.backup === "function") {
+        await sqlite.backup(db, destPath);
+      } else {
+        db.exec(`VACUUM INTO '${String(destPath).replace(/'/g, "''")}'`);
+      }
+      return destPath;
+    },
     close() {
       clearInterval(checkpointTimer);
       gracefulClose();

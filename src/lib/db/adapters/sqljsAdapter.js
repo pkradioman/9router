@@ -111,5 +111,16 @@ export async function createSqlJsAdapter(filePath) {
   process.on("SIGINT", flush);
   process.on("SIGTERM", flush);
 
-  return { driver: "sql.js", run, get, all, exec, transaction, close, raw: db };
+  return {
+    driver: "sql.js", run, get, all, exec, transaction, close,
+    // Consistent live copy for the experimental desktop import. sql.js keeps the
+    // newest state in WASM memory, so export() — not the debounced file on disk —
+    // is the only complete view. Synchronous by design: the buffer already exists.
+    async snapshotFile(destPath) {
+      const data = db.export();
+      fs.writeFileSync(destPath, Buffer.from(data));
+      return destPath;
+    },
+    raw: db,
+  };
 }

@@ -306,3 +306,40 @@ describe("dashboard guard helpers", () => {
     expect(__test__.extractApiKey(apiRequest)).toBe("header-key");
   });
 });
+
+describe("whole-database snapshot route", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
+    mocks.getSettings.mockResolvedValue({ requireLogin: true });
+    mocks.validateApiKey.mockResolvedValue(false);
+    mocks.getConsistentMachineId.mockResolvedValue("cli-token");
+    mocks.verifyDashboardAuthToken.mockResolvedValue(true);
+  });
+
+  // The snapshot exposes the whole DB (provider tokens, API keys, password
+  // hash), so it is loopback-only on top of ALWAYS_PROTECTED.
+  it("refuses a remote caller even when authenticated", async () => {
+    const response = await proxy(
+      request("/api/settings/database/snapshot", { host: "router.example.com", cookie: "auth_token=jwt" })
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toMatch(/Local only/);
+  });
+
+  it("allows an authenticated loopback caller through to the route", async () => {
+    const response = await proxy(
+      localRequest("/api/settings/database/snapshot", { cookie: "auth_token=jwt" })
+    );
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  it("refuses an unauthenticated loopback caller", async () => {
+    mocks.verifyDashboardAuthToken.mockResolvedValue(false);
+    const response = await proxy(localRequest("/api/settings/database/snapshot"));
+
+    expect(response.status).toBe(403);
+  });
+});
