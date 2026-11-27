@@ -13,6 +13,7 @@ import { GatewaySupervisor, resolveRuntimeDir } from "./gateway-supervisor.mjs";
 import { initialStatus, refreshStatus } from "./ui/status-model.mjs";
 import { TrayController } from "./tray-controller.mjs";
 import { assertRuntimeGuard } from "./runtime-guard.mjs";
+import { checkExperimentalRouteBlocks, summarize } from "./security-check.mjs";
 import { askForPort } from "./port-prompt.mjs";
 import { acquireSingleInstance } from "./single-instance.mjs";
 
@@ -34,11 +35,17 @@ function writeBootRecord(logDir, record) {
   }
 }
 
-export async function boot({ env = process.env, headless = false } = {}) {
+export async function boot({
+  env = process.env,
+  headless = false,
+  onPortLost = null,
+  verifyBlockedRoutes = true,
+} = {}) {
   const isolation = resolveIsolation({ env });
   const port = resolvePort(env);
   const secrets = loadOrCreateSecrets(isolation.dataDir);
   const runtimeDir = resolveRuntimeDir({ env, packageRoot });
+  // Cheap pre-check: the staged files must carry the experimental marker.
   assertRuntimeGuard(runtimeDir);
 
   logBoot("isolated", `dataDir=${isolation.dataDir} port=${port}`);
@@ -49,9 +56,44 @@ export async function boot({ env = process.env, headless = false } = {}) {
     logDir: isolation.logDir,
     secrets,
     env: gatewayEnv({ isolation, port, secrets, runtimeDir, env }),
+    onPortLost: (error) => onPortLost?.(error, supervisor),
   });
 
   const health = await supervisor.start();
+
+  // Live proof, not just the marker grep above: one bounded POST per blocked
+  // path against the running gateway. The routes must answer 401/403 before
+  // the window opens, otherwise a stale runtime could expose self-update or
+  // cross-process kill. These are local gateway routes and never reach a
+  // provider. The marker check stays as a cheap pre-check, not the only
+  // enforcement.
+  //
+  // `verifyBlockedRoutes: false` exists for fake-runtime harnesses that cannot
+  // serve the Next.js routes; it logs loudly and is never used by main().
+  if (verifyBlockedRoutes) {
+    let guard;
+    try {
+      guard = summarize(await checkExperimentalRouteBlocks({ baseUrl: `http://127.0.0.1:${port}` }));
+    } catch (error) {
+      await supervisor.stop();
+      throw new IsolationError(
+        `Experimental route guard could not run: ${error && (error.message || String(error))}`,
+        { port }
+      );
+    }
+    if (guard.failures.length) {
+      await supervisor.stop();
+      throw new IsolationError(
+        `Experimental route guard failed (${guard.failures
+          .map((f) => `${f.name}=${f.status}`)
+          .join(", ")}). The staged runtime predates the safety build; restage it with "npm run desktop:stage".`,
+        { failures: guard.failures }
+      );
+    }
+    logBoot("experimental route guard passed", `${guard.passed}/${guard.total} blocked routes refused`);
+  } else {
+    logBoot("experimental route guard skipped by explicit option; marker pre-check only");
+  }
 
   const status = initialStatus({ port, dataDir: isolation.dataDir, runtimeDir });
   const next = await refreshStatus(status);
@@ -95,9 +137,13 @@ async function main() {
   if (!instance.primary) return;
   let session;
   let env = process.env;
+  const onPortLost = (error, supervisor) => {
+    logBoot("port ownership lost:", error.message);
+    void shutdown(supervisor, 1);
+  };
   while (!session) {
     try {
-      session = await boot({ env, headless });
+      session = await boot({ env, headless, onPortLost });
     } catch (error) {
       if (error instanceof PortConflictError) {
         logBoot(error.message);
