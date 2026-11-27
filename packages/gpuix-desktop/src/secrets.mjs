@@ -58,6 +58,18 @@ export function loadOrCreateSecrets(dataDir) {
   return { ...secrets, file };
 }
 
+// The single-instance activation pipe is reachable by any local process. The
+// token below is an HMAC key, never sent on the wire: the owner challenges with
+// a fresh nonce and the client answers with HMAC(token, "gpuix-activate-v2:" +
+// nonce), so a squatter cannot harvest or replay it. Boundary: any same-user
+// process can read this store, and a squatter that owns the pipe name first
+// still costs availability (our launch fails closed). This stops blind,
+// accidental and wrong-window activation plus token harvesting, not same-user
+// malware. It reads no production secret and never writes the token anywhere.
+export function createActivationToken(secrets) {
+  return crypto.createHmac("sha256", secrets.jwtSecret).update("9router-gpuix-activation-v2").digest("hex");
+}
+
 // Secrets are written once and reused, so two launches cannot diverge and the
 // shell can log in to its own gateway after a restart.
 export function redactSecrets(value, secrets) {

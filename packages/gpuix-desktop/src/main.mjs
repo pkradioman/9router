@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gatewayEnv, resolveIsolation, resolvePort, IsolationError, PortConflictError } from "./config.mjs";
-import { loadOrCreateSecrets } from "./secrets.mjs";
+import { createActivationToken, loadOrCreateSecrets } from "./secrets.mjs";
 import { GatewaySupervisor, resolveRuntimeDir } from "./gateway-supervisor.mjs";
 import { initialStatus, refreshStatus } from "./ui/status-model.mjs";
 import { TrayController } from "./tray-controller.mjs";
@@ -127,12 +127,21 @@ async function main() {
     return;
   }
   const headless = process.env.NINEROUTER_GPU_UIX_HEADLESS === "1";
-  const identity = fs.realpathSync(resolveIsolation({ env: process.env }).dataDir);
+  const identityIsolation = resolveIsolation({ env: process.env });
+  const identity = fs.realpathSync(identityIsolation.dataDir);
+  // Activation is token-gated: the pipe is reachable by any local process, so
+  // both launches prove they share this user's experimental secrets store.
+  const secrets = loadOrCreateSecrets(identityIsolation.dataDir);
+  const activationToken = createActivationToken(secrets);
   let controller;
   let pendingActivation = false;
   const instance = await acquireSingleInstance(identity, () => {
     if (controller) controller.open();
     else pendingActivation = true;
+  }, {
+    activationToken,
+    secrets,
+    log: (message) => logBoot(message),
   });
   if (!instance.primary) return;
   let session;
