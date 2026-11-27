@@ -1,4 +1,4 @@
-// Native request log: paged metadata from /api/usage/request-details.
+// Native request log: paged, filterable metadata from /api/usage/request-details.
 //
 // Conversation bodies are redacted by the gateway; only model, provider,
 // status, timing and token counts are shown.
@@ -12,19 +12,33 @@ export function RequestLogPage({ api }) {
   const [page, setPage] = React.useState(1);
   const [result, setResult] = React.useState(null);
   const [error, setError] = React.useState("");
+  const [drafts, setDrafts] = React.useState({ provider: "", model: "", status: "" });
+  const [filters, setFilters] = React.useState({ provider: "", model: "", status: "" });
 
   const load = React.useCallback(() => {
     setError("");
     setResult(null);
     api
-      .getRequestDetails(page, PAGE_SIZE)
+      .getRequestDetails(page, PAGE_SIZE, filters)
       .then(setResult)
       .catch((err) => setError(err.message));
-  }, [api, page]);
+  }, [api, page, filters]);
 
   React.useEffect(() => {
     load();
   }, [load]);
+
+  const applyFilters = () => {
+    setPage(1);
+    setFilters({ ...drafts });
+  };
+
+  const clearFilters = () => {
+    const empty = { provider: "", model: "", status: "" };
+    setDrafts(empty);
+    setFilters(empty);
+    setPage(1);
+  };
 
   const pagination = (result && result.pagination) || null;
   const details = (result && result.details) || [];
@@ -62,6 +76,55 @@ export function RequestLogPage({ api }) {
             `page ${pagination.page} / ${Math.max(pagination.totalPages, 1)} · ${pagination.totalItems} total`
           )
         : null
+    ),
+    h(
+      "div",
+      { style: { display: "flex", flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+      h("input", {
+        testId: "request-log-provider",
+        "aria-label": "Provider filter",
+        value: drafts.provider,
+        onChange: (event) => setDrafts((value) => ({ ...value, provider: event.value ?? "" })),
+        placeholder: "provider",
+        style: { width: 140, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+      }),
+      h("input", {
+        testId: "request-log-model",
+        "aria-label": "Model filter",
+        value: drafts.model,
+        onChange: (event) => setDrafts((value) => ({ ...value, model: event.value ?? "" })),
+        placeholder: "model",
+        style: { width: 170, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+      }),
+      h("input", {
+        testId: "request-log-status",
+        "aria-label": "Status filter",
+        value: drafts.status,
+        onChange: (event) => setDrafts((value) => ({ ...value, status: event.value ?? "" })),
+        onSubmit: applyFilters,
+        placeholder: "status",
+        style: { width: 90, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+      }),
+      h(
+        "text",
+        {
+          testId: "request-log-apply",
+          role: "button",
+          onClick: applyFilters,
+          style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+        },
+        "Apply"
+      ),
+      h(
+        "text",
+        {
+          testId: "request-log-clear",
+          role: "button",
+          onClick: clearFilters,
+          style: { color: theme.muted, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+        },
+        "Clear"
+      )
     ),
     error ? h("text", { testId: "request-log-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
     h(

@@ -217,6 +217,12 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(updatedCombo.body.models).toEqual(["openai/gpt-4o"]);
     expect((await call(`/api/combos/${encodeURIComponent(comboId)}`, { method: "DELETE" })).status).toBe(200);
 
+    // Request-log filters are accepted and still return the paged envelope.
+    const filtered = await call("/api/usage/request-details?page=1&pageSize=5&provider=openai&status=200");
+    expect(filtered.status).toBe(200);
+    expect(Array.isArray(filtered.body.details)).toBe(true);
+    expect(filtered.body.pagination.pageSize).toBe(5);
+
     await supervisor.stop();
 
     // 1. Gateway state landed in the isolated data dir and nowhere else.

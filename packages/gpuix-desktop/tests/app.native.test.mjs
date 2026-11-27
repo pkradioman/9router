@@ -746,17 +746,34 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     let painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("gpt-4o");
     expect(painted).toContain("page 1 / 2");
-    expect(api.getRequestDetails).toHaveBeenCalledWith(1, 20);
+    expect(api.getRequestDetails).toHaveBeenCalledWith(1, 20, { provider: "", model: "", status: "" });
 
     click(root.renderer, "request-log-next");
     await settle(root);
-    expect(api.getRequestDetails).toHaveBeenLastCalledWith(2, 20);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(2, 20, { provider: "", model: "", status: "" });
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("claude-sonnet");
     expect(painted).toContain("page 2 / 2");
 
     click(root.renderer, "request-log-prev");
     await settle(root);
-    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20, { provider: "", model: "", status: "" });
+
+    const input = root.renderer.findByTestId("request-log-provider");
+    const bounds = root.renderer.getElementBounds(input.id);
+    root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(input.id, "o p e n a i");
+    await settle(root);
+    click(root.renderer, "request-log-apply");
+    await settle(root);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20, {
+      provider: "openai",
+      model: "",
+      status: "",
+    });
+
+    click(root.renderer, "request-log-clear");
+    await settle(root);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20, { provider: "", model: "", status: "" });
   });
 });

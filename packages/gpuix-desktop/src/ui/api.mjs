@@ -92,8 +92,13 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       request(`/api/models/alias?alias=${encodeURIComponent(alias)}`, { method: "DELETE" }),
     getUsageStats: (period) => request(`/api/usage/stats?period=${encodeURIComponent(period)}`),
     getUsageChart: (period) => request(`/api/usage/chart?period=${encodeURIComponent(period)}`),
-    getRequestDetails: (page = 1, pageSize = 20) =>
-      request(`/api/usage/request-details?page=${page}&pageSize=${pageSize}`),
+    getRequestDetails: (page = 1, pageSize = 20, filters = {}) => {
+      const parts = [`page=${page}`, `pageSize=${pageSize}`];
+      for (const key of ["provider", "model", "status", "startDate", "endDate"]) {
+        if (filters[key]) parts.push(`${key}=${encodeURIComponent(filters[key])}`);
+      }
+      return request(`/api/usage/request-details?${parts.join("&")}`);
+    },
     listCombos: async () => {
       const body = await request("/api/combos");
       return (body && body.combos) || [];
