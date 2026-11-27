@@ -39,6 +39,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
   let providers = providerSeed.map((item) => ({ ...item }));
   let combos = comboSeed.map((item) => ({ ...item }));
   let pools = poolSeed.map((item) => ({ ...item }));
+  let nodes = [];
   let fakeSettings = {
     cavemanEnabled: false,
     cavemanLevel: "full",
@@ -129,6 +130,16 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       hermes: null,
     })),
     getTranslatorFile: vi.fn(async (file) => `{"file":"${file}","marker":"body"}`),
+    listProviderNodes: vi.fn(async () => nodes.map((node) => ({ ...node }))),
+    createProviderNode: vi.fn(async (body) => {
+      const created = { id: `openai-compatible-chat-${nodes.length + 1}`, apiType: "chat", ...body };
+      nodes = [created, ...nodes];
+      return { node: created };
+    }),
+    deleteProviderNode: vi.fn(async (id) => {
+      nodes = nodes.filter((node) => node.id !== id);
+      return { success: true };
+    }),
   };
   api.snapshot = () => keys;
   return api;
@@ -443,6 +454,44 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("Droid");
     expect(painted).toContain("Not installed");
     expect(painted).toContain("Unavailable");
+  });
+
+  it("creates and deletes a custom provider node", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    click(root.renderer, "nodes-open");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("No custom nodes yet.");
+
+    const typeInto = async (testId, keys) => {
+      const element = root.renderer.findByTestId(testId);
+      const bounds = root.renderer.getElementBounds(element.id);
+      root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      root.renderer.nativeSimulateKeystrokes(element.id, keys);
+      await settle(root);
+    };
+    await typeInto("node-name-input", "L o c a l");
+    await typeInto("node-prefix-input", "l o c");
+    await typeInto("node-url-input", "h t t p : / / 1 2 7 . 0 . 0 . 1 : 8 0 8 0 / v 1");
+    click(root.renderer, "node-create");
+    await settle(root);
+
+    expect(api.createProviderNode).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Local", prefix: "loc", baseUrl: "http://127.0.0.1:8080/v1", apiType: "chat" })
+    );
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Local");
+    expect(painted).toContain("loc · http://127.0.0.1:8080/v1");
+
+    click(root.renderer, "node-delete-openai-compatible-chat-1");
+    await settle(root);
+    expect(api.deleteProviderNode).toHaveBeenCalledWith("openai-compatible-chat-1");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("No custom nodes yet.");
   });
 
   it("shows the agent skills list with raw URLs", async () => {

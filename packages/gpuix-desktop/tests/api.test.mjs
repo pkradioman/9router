@@ -166,6 +166,22 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/translator/load?file=1_req_client.json");
   });
 
+  it("manages provider nodes", async () => {
+    const { calls, fetchImpl } = fakeFetch((url, init) => {
+      if (init.method === "POST") return json({ node: { id: "n1" } }, 201);
+      if (init.method === "DELETE") return json({ success: true });
+      return json({ nodes: [{ id: "n0", name: "old" }] });
+    });
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.listProviderNodes()).toEqual([{ id: "n0", name: "old" }]);
+    await api.createProviderNode({ name: "Local", prefix: "loc", baseUrl: "http://h/v1", apiType: "chat" });
+    await api.deleteProviderNode("n1");
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/provider-nodes");
+    expect(calls[2].url).toBe("http://127.0.0.1:20129/api/provider-nodes/n1");
+    expect(calls[2].init.method).toBe("DELETE");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
