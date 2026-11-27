@@ -7,3 +7,4 @@ resources/gateway/
 # Root .gitignore ignores lockfiles; this package pins GPUIX to exact versions,
 # so its lockfile must be committed for reproducible installs.
 !package-lock.json
+dist-gpuix/
