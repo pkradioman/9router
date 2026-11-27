@@ -289,6 +289,29 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(paintedAfter).toContain("Disabled");
   });
 
+  it("edits a provider connection's name, model and priority", async () => {
+    const api = createFakeApi([], [
+      { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true, defaultModel: "gpt-4o", priority: 1 },
+    ]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("gpt-4o");
+
+    click(root.renderer, "provider-edit-p1");
+    await settle(root);
+    expect(root.renderer.findByTestId("provider-name-edit-p1")).toBeTruthy();
+    expect(root.renderer.findByTestId("provider-model-edit-p1")).toBeTruthy();
+    expect(root.renderer.findByTestId("provider-priority-edit-p1")).toBeTruthy();
+
+    click(root.renderer, "provider-save-p1");
+    await settle(root);
+    expect(api.updateProvider).toHaveBeenCalledWith("p1", { name: "Work", defaultModel: "gpt-4o", priority: 1 });
+  });
+
   it("adds an API-key provider connection and deletes it", async () => {
     const api = createFakeApi();
     const root = createTestRoot({ width: 1080, height: 720 });

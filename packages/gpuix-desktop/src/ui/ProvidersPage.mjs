@@ -7,16 +7,34 @@ import { theme } from "./theme.mjs";
 
 const h = React.createElement;
 
-function ProviderRow({ item, onToggle, onDelete, busy }) {
+function ProviderRow({ item, onToggle, onDelete, onUpdate, busy }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draftName, setDraftName] = React.useState(item.name || "");
+  const [draftModel, setDraftModel] = React.useState(item.defaultModel || "");
+  const [draftPriority, setDraftPriority] = React.useState(
+    item.priority === undefined || item.priority === null ? "" : String(item.priority)
+  );
+
+  const save = () => {
+    const patch = { name: draftName.trim() || item.name };
+    patch.defaultModel = draftModel.trim();
+    if (draftPriority.trim() !== "") {
+      const value = Number(draftPriority);
+      if (!Number.isFinite(value)) return;
+      patch.priority = value;
+    }
+    onUpdate(item, patch);
+    setEditing(false);
+  };
+
   return h(
     "div",
     {
       testId: `provider-row-${item.id}`,
       style: {
         display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
+        flexDirection: "column",
+        gap: 4,
         paddingTop: 8,
         paddingBottom: 8,
         borderTopWidth: 1,
@@ -25,39 +43,91 @@ function ProviderRow({ item, onToggle, onDelete, busy }) {
     },
     h(
       "div",
-      { style: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 2 } },
-      h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, item.name || item.provider),
+      { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 2 } },
+        h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, item.name || item.provider),
+        h(
+          "text",
+          { style: { color: theme.muted, fontSize: 11 } },
+          [item.provider, item.authType, item.email, item.defaultModel].filter(Boolean).join(" · ")
+        )
+      ),
       h(
         "text",
-        { style: { color: theme.muted, fontSize: 11 } },
-        [item.provider, item.authType, item.email].filter(Boolean).join(" · ")
+        {
+          testId: `provider-edit-${item.id}`,
+          role: "button",
+          onClick: () => (busy ? null : setEditing((value) => !value)),
+          style: { color: theme.muted, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+        },
+        "Edit"
+      ),
+      h(
+        "text",
+        {
+          testId: `provider-toggle-${item.id}`,
+          role: "button",
+          onClick: () => (busy ? null : onToggle(item)),
+          style: {
+            color: item.isActive === false ? theme.muted : theme.ok,
+            fontSize: 11,
+            cursor: busy ? "default" : "pointer",
+            hover: busy ? {} : { color: theme.text },
+          },
+        },
+        item.isActive === false ? "Disabled" : "Active"
+      ),
+      h(
+        "text",
+        {
+          testId: `provider-delete-${item.id}`,
+          role: "button",
+          onClick: () => (busy ? null : onDelete(item)),
+          style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
+        },
+        "Delete"
       )
     ),
-    h(
-      "text",
-      {
-        testId: `provider-toggle-${item.id}`,
-        role: "button",
-        onClick: () => (busy ? null : onToggle(item)),
-        style: {
-          color: item.isActive === false ? theme.muted : theme.ok,
-          fontSize: 11,
-          cursor: busy ? "default" : "pointer",
-          hover: busy ? {} : { color: theme.text },
-        },
-      },
-      item.isActive === false ? "Disabled" : "Active"
-    ),
-    h(
-      "text",
-      {
-        testId: `provider-delete-${item.id}`,
-        role: "button",
-        onClick: () => (busy ? null : onDelete(item)),
-        style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
-      },
-      "Delete"
-    )
+    editing
+      ? h(
+          "div",
+          { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+          h("input", {
+            testId: `provider-name-edit-${item.id}`,
+            "aria-label": "Connection name",
+            value: draftName,
+            onChange: (event) => setDraftName(event.value ?? ""),
+            style: { width: 150, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h("input", {
+            testId: `provider-model-edit-${item.id}`,
+            "aria-label": "Default model",
+            value: draftModel,
+            onChange: (event) => setDraftModel(event.value ?? ""),
+            style: { width: 180, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h("input", {
+            testId: `provider-priority-edit-${item.id}`,
+            "aria-label": "Priority",
+            value: draftPriority,
+            onChange: (event) => setDraftPriority(event.value ?? ""),
+            onSubmit: save,
+            style: { width: 70, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h(
+            "text",
+            {
+              testId: `provider-save-${item.id}`,
+              role: "button",
+              onClick: save,
+              style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+            },
+            "Save"
+          )
+        )
+      : null
   );
 }
 
@@ -124,6 +194,16 @@ export function ProvidersPage({ api }) {
     setError("");
     api
       .deleteProvider(item.id)
+      .then(load)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
+  const update = (item, patch) => {
+    setBusy(true);
+    setError("");
+    api
+      .updateProvider(item.id, patch)
       .then(load)
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
@@ -265,7 +345,7 @@ export function ProvidersPage({ api }) {
               "div",
               { style: { display: "flex", flexDirection: "column" } },
               providers.map((item) =>
-                h(ProviderRow, { key: item.id, item, onToggle: toggle, onDelete: remove, busy })
+                h(ProviderRow, { key: item.id, item, onToggle: toggle, onDelete: remove, onUpdate: update, busy })
               )
             ),
       h(
