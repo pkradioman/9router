@@ -218,7 +218,9 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect((await call(`/api/combos/${encodeURIComponent(comboId)}`, { method: "DELETE" })).status).toBe(200);
 
     // Request-log filters are accepted and still return the paged envelope.
-    const filtered = await call("/api/usage/request-details?page=1&pageSize=5&provider=openai&status=200");
+    const filtered = await call(
+      "/api/usage/request-details?page=1&pageSize=5&provider=openai&status=200&startDate=2000-01-01&endDate=2999-12-31"
+    );
     expect(filtered.status).toBe(200);
     expect(Array.isArray(filtered.body.details)).toBe(true);
     expect(filtered.body.pagination.pageSize).toBe(5);

@@ -944,18 +944,18 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     let painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("gpt-4o");
     expect(painted).toContain("page 1 / 2");
-    expect(api.getRequestDetails).toHaveBeenCalledWith(1, 20, { provider: "", model: "", status: "" });
+    expect(api.getRequestDetails).toHaveBeenCalledWith(1, 20, { provider: "", model: "", status: "", startDate: "", endDate: "" });
 
     click(root.renderer, "request-log-next");
     await settle(root);
-    expect(api.getRequestDetails).toHaveBeenLastCalledWith(2, 20, { provider: "", model: "", status: "" });
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(2, 20, { provider: "", model: "", status: "", startDate: "", endDate: "" });
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("claude-sonnet");
     expect(painted).toContain("page 2 / 2");
 
     click(root.renderer, "request-log-prev");
     await settle(root);
-    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20, { provider: "", model: "", status: "" });
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20, { provider: "", model: "", status: "", startDate: "", endDate: "" });
 
     const input = root.renderer.findByTestId("request-log-provider");
     const bounds = root.renderer.getElementBounds(input.id);
@@ -968,10 +968,31 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
       provider: "openai",
       model: "",
       status: "",
+      startDate: "",
+      endDate: "",
+    });
+
+    const startInput = root.renderer.findByTestId("request-log-start");
+    const startBounds = root.renderer.getElementBounds(startInput.id);
+    root.renderer.nativeSimulateClick(startBounds.x + startBounds.width / 2, startBounds.y + startBounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(startInput.id, "2 0 2 6 - 1 1 - 0 1");
+    const endInput = root.renderer.findByTestId("request-log-end");
+    const endBounds = root.renderer.getElementBounds(endInput.id);
+    root.renderer.nativeSimulateClick(endBounds.x + endBounds.width / 2, endBounds.y + endBounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(endInput.id, "2 0 2 6 - 1 1 - 3 0");
+    await settle(root);
+    click(root.renderer, "request-log-apply");
+    await settle(root);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20, {
+      provider: "openai",
+      model: "",
+      status: "",
+      startDate: "2026-11-01",
+      endDate: "2026-11-30",
     });
 
     click(root.renderer, "request-log-clear");
     await settle(root);
-    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20, { provider: "", model: "", status: "" });
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20, { provider: "", model: "", status: "", startDate: "", endDate: "" });
   });
 });

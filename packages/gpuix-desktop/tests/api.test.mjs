@@ -194,9 +194,15 @@ describe("createGatewayApi", () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ details: [] }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
 
-    await api.getRequestDetails(2, 10, { provider: "open ai", model: "gpt-4o", status: "500", startDate: "" });
+    await api.getRequestDetails(2, 10, {
+      provider: "open ai",
+      model: "gpt-4o",
+      status: "500",
+      startDate: "2026-11-01",
+      endDate: "",
+    });
     expect(calls[0].url).toBe(
-      "http://127.0.0.1:20129/api/usage/request-details?page=2&pageSize=10&provider=open%20ai&model=gpt-4o&status=500"
+      "http://127.0.0.1:20129/api/usage/request-details?page=2&pageSize=10&provider=open%20ai&model=gpt-4o&status=500&startDate=2026-11-01"
     );
   });
 

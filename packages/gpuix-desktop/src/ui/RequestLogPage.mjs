@@ -12,8 +12,8 @@ export function RequestLogPage({ api }) {
   const [page, setPage] = React.useState(1);
   const [result, setResult] = React.useState(null);
   const [error, setError] = React.useState("");
-  const [drafts, setDrafts] = React.useState({ provider: "", model: "", status: "" });
-  const [filters, setFilters] = React.useState({ provider: "", model: "", status: "" });
+  const [drafts, setDrafts] = React.useState({ provider: "", model: "", status: "", startDate: "", endDate: "" });
+  const [filters, setFilters] = React.useState({ provider: "", model: "", status: "", startDate: "", endDate: "" });
 
   const load = React.useCallback(() => {
     setError("");
@@ -34,7 +34,7 @@ export function RequestLogPage({ api }) {
   };
 
   const clearFilters = () => {
-    const empty = { provider: "", model: "", status: "" };
+    const empty = { provider: "", model: "", status: "", startDate: "", endDate: "" };
     setDrafts(empty);
     setFilters(empty);
     setPage(1);
@@ -104,6 +104,23 @@ export function RequestLogPage({ api }) {
         onSubmit: applyFilters,
         placeholder: "status",
         style: { width: 90, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+      }),
+      h("input", {
+        testId: "request-log-start",
+        "aria-label": "Start date",
+        value: drafts.startDate,
+        onChange: (event) => setDrafts((value) => ({ ...value, startDate: event.value ?? "" })),
+        placeholder: "from YYYY-MM-DD",
+        style: { width: 130, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+      }),
+      h("input", {
+        testId: "request-log-end",
+        "aria-label": "End date",
+        value: drafts.endDate,
+        onChange: (event) => setDrafts((value) => ({ ...value, endDate: event.value ?? "" })),
+        onSubmit: applyFilters,
+        placeholder: "to YYYY-MM-DD",
+        style: { width: 130, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
       }),
       h(
         "text",
