@@ -107,6 +107,8 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     },
     createCombo: (name) => request("/api/combos", { method: "POST", body: { name } }),
     updateCombo: (id, patch) => request(`/api/combos/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
+    getComboPresets: (source) => request(`/api/combos/presets?source=${encodeURIComponent(source)}`),
+    createComboPresets: (source) => request("/api/combos/presets", { method: "POST", body: { source } }),
     deleteCombo: (id) => request(`/api/combos/${encodeURIComponent(id)}`, { method: "DELETE" }),
     getConsoleLogs: async () => {
       const body = await request("/api/translator/console-logs");

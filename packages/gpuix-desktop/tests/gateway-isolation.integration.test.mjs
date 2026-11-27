@@ -225,6 +225,13 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(Array.isArray(filtered.body.details)).toBe(true);
     expect(filtered.body.pagination.pageSize).toBe(5);
 
+    // Combo presets preview is read-only and does not touch providers for the
+    // "claude" source.
+    const presets = await call("/api/combos/presets?source=claude");
+    expect(presets.status).toBe(200);
+    expect(presets.body.source).toBe("claude");
+    expect(Array.isArray(presets.body.items)).toBe(true);
+
     // Proxy pools: create, edit name + strict mode, delete. The connection
     // target is loopback-only on a closed port; this probe never dials out.
     const createdPool = await call("/api/proxy-pools", {

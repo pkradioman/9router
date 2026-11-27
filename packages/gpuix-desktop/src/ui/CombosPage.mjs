@@ -198,6 +198,7 @@ function ComboRow({ item, strategy, onDelete, onSave, onStrategy, busy }) {
 export function CombosPage({ api }) {
   const [combos, setCombos] = React.useState(null);
   const [strategies, setStrategies] = React.useState({});
+  const [presets, setPresets] = React.useState(null);
   const [draftName, setDraftName] = React.useState("");
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -270,6 +271,25 @@ export function CombosPage({ api }) {
     void guard(api.patchSettings({ comboStrategies: updated }).then(load));
   };
 
+  const previewPresets = (source) => {
+    setError("");
+    setPresets(null);
+    api
+      .getComboPresets(source)
+      .then(setPresets)
+      .catch((err) => setError(err.message));
+  };
+
+  const createPresets = () => {
+    if (!presets) return;
+    void guard(
+      api.createComboPresets(presets.source).then(() => {
+        setPresets(null);
+        load();
+      })
+    );
+  };
+
   return h(
     "div",
     {
@@ -333,6 +353,75 @@ export function CombosPage({ api }) {
         )
       ),
       error ? h("text", { testId: "combos-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" } },
+        h("text", { style: { color: theme.muted, fontSize: 10 } }, "Presets"),
+        h(
+          "text",
+          {
+            testId: "combo-presets-claude",
+            role: "button",
+            onClick: () => previewPresets("claude"),
+            style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+          },
+          "Preview Claude"
+        ),
+        h(
+          "text",
+          {
+            testId: "combo-presets-cursor",
+            role: "button",
+            onClick: () => previewPresets("cursor"),
+            style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+          },
+          "Preview Cursor"
+        )
+      ),
+      presets
+        ? h(
+            "div",
+            {
+              testId: "combo-presets-panel",
+              style: {
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                paddingTop: 6,
+                borderTopWidth: 1,
+                borderColor: theme.border,
+              },
+            },
+            h(
+              "div",
+              { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+              h(
+                "text",
+                { style: { color: theme.text, fontSize: 11, flexGrow: 1 } },
+                `${presets.source} · ${presets.toCreate} to create · ${presets.toSkip} existing`
+              ),
+              presets.toCreate > 0
+                ? h(
+                    "text",
+                    {
+                      testId: "combo-presets-create",
+                      role: "button",
+                      onClick: busy ? null : createPresets,
+                      style: { color: theme.ok, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                    },
+                    `Create missing (${presets.toCreate})`
+                  )
+                : null
+            ),
+            ...(presets.items || []).map((preset) =>
+              h(
+                "text",
+                { key: preset.name, style: { color: preset.exists ? theme.muted : theme.text, fontSize: 10 } },
+                `${preset.name}${preset.exists ? " · exists" : ` · ${(preset.models || []).length} models`}`
+              )
+            )
+          )
+        : null,
       combos === null
         ? h("text", { testId: "combos-loading", style: { color: theme.muted, fontSize: 12 } }, "Loading combos...")
         : combos.length === 0
@@ -355,7 +444,7 @@ export function CombosPage({ api }) {
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "The vision/capacity adapter stays on the dashboard."
+        "Cursor presets resolve its live catalog when a cursor connection is active. The vision/capacity adapter stays on the dashboard."
       )
     )
   );

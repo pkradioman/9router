@@ -302,6 +302,19 @@ describe("createGatewayApi", () => {
     expect(calls[0].init.method).toBe("POST");
   });
 
+  it("reads and creates combo presets", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ source: "claude", items: [] }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.getComboPresets("claude");
+    await api.createComboPresets("cursor");
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/combos/presets?source=claude");
+    expect(calls[0].init.method).toBe("GET");
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/combos/presets");
+    expect(calls[1].init.method).toBe("POST");
+    expect(JSON.parse(calls[1].init.body)).toEqual({ source: "cursor" });
+  });
+
   it("updates a combo by id", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ id: "c 1", name: "mix", models: [] }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

@@ -129,6 +129,16 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       combos = combos.map((item) => (item.id === id ? { ...item, ...patch } : item));
       return { combo: combos.find((item) => item.id === id) };
     }),
+    getComboPresets: vi.fn(async (source) => ({
+      source,
+      items: [
+        { name: `${source}-fast`, models: ["openai/gpt-4o"], exists: false },
+        { name: `${source}-old`, models: [], exists: true },
+      ],
+      toCreate: 1,
+      toSkip: 1,
+    })),
+    createComboPresets: vi.fn(async (source) => ({ created: [`${source}-fast`] })),
     deleteCombo: vi.fn(async (id) => {
       combos = combos.filter((item) => item.id !== id);
       return { success: true };
@@ -628,6 +638,29 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "combo-strategy-c1-fallback");
     await settle(root);
     expect(api.patchSettings).toHaveBeenLastCalledWith({ comboStrategies: {} });
+  });
+
+  it("previews and creates combo presets", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-combos");
+    await settle(root);
+    click(root.renderer, "combo-presets-claude");
+    await settle(root);
+    expect(api.getComboPresets).toHaveBeenCalledWith("claude");
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("claude · 1 to create · 1 existing");
+    expect(painted).toContain("claude-fast");
+    expect(painted).toContain("claude-old · exists");
+
+    click(root.renderer, "combo-presets-create");
+    await settle(root);
+    expect(api.createComboPresets).toHaveBeenCalledWith("claude");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).not.toContain("to create");
   });
 
   it("shows console log lines and clears them", async () => {
