@@ -121,6 +121,7 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     testProxyUrl: (proxyUrl) =>
       request("/api/settings/proxy-test", { method: "POST", body: { proxyUrl } }),
     getTokenSaverStats: (period) => request(`/api/token-saver/stats?period=${encodeURIComponent(period)}`),
+    getHeadroomStatus: () => request("/api/headroom/status"),
     listProxyPools: async () => {
       const body = await request("/api/proxy-pools");
       return (body && body.proxyPools) || [];

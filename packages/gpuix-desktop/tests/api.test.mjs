@@ -302,6 +302,15 @@ describe("createGatewayApi", () => {
     expect(calls[0].init.method).toBe("POST");
   });
 
+  it("reads headroom status", async () => {
+    const body = { installed: false, running: false, version: null, url: "http://127.0.0.1:5757" };
+    const { calls, fetchImpl } = fakeFetch(() => json(body));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getHeadroomStatus()).toEqual(body);
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/headroom/status");
+  });
+
   it("reads and creates combo presets", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ source: "claude", items: [] }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

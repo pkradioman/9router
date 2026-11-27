@@ -160,6 +160,12 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       rtk: { hitRequests: 3, bytesSaved: 1200 },
       caveman: { onRequests: 5, offRequests: 1 },
     })),
+    getHeadroomStatus: vi.fn(async () => ({
+      installed: true,
+      running: false,
+      version: "0.9.1",
+      url: "http://127.0.0.1:5757",
+    })),
     listProxyPools: vi.fn(async () => pools.map((item) => ({ ...item }))),
     createProxyPool: vi.fn(async (pool) => {
       const created = { id: `pp${pools.length + 1}`, isActive: true, type: "http", ...pool };
@@ -750,6 +756,9 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.patchSettings).toHaveBeenLastCalledWith({ rtkEnabled: false });
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("Disabled");
+    expect(painted).toContain("Installed: yes · running: no");
+    expect(painted).toContain("Version: 0.9.1");
+    expect(painted).toContain("URL: http://127.0.0.1:5757");
   });
 
   it("lists proxy pools, toggles and deletes one", async () => {

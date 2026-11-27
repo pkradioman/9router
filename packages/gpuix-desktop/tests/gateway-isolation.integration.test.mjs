@@ -321,6 +321,13 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     });
     expect(proxyTest.body.ok).toBe(false);
 
+    // Headroom status is a read-only probe of the configured local URL; it must
+    // answer without spawning anything.
+    const headroom = await call("/api/headroom/status");
+    expect(headroom.status).toBe(200);
+    expect(typeof headroom.body.installed).toBe("boolean");
+    expect(typeof headroom.body.running).toBe("boolean");
+
     // Provider node edit: create a chat node, rename it through PUT, delete it.
     const createdNode = await call("/api/provider-nodes", {
       method: "POST",

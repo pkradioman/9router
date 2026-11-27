@@ -1,8 +1,8 @@
-// Native Token Saver page: savings stats plus the caveman and RTK switches.
+// Native Token Saver page: savings stats, the caveman and RTK switches, and a
+// read-only headroom status read-out.
 //
-// Mirrors the dashboard's saver controls that act on plain settings. Headroom
-// process control and pxpipe are deliberately absent: their routes are blocked
-// in the experimental build.
+// Headroom start/stop/extras and pxpipe stay on the dashboard: their routes are
+// blocked in the experimental build.
 import React from "react";
 import { theme } from "./theme.mjs";
 
@@ -43,6 +43,7 @@ export function TokenSaverPage({ api }) {
   const [period, setPeriod] = React.useState("7d");
   const [stats, setStats] = React.useState(null);
   const [settings, setSettings] = React.useState(null);
+  const [headroom, setHeadroom] = React.useState(null);
   const [error, setError] = React.useState("");
 
   const loadStats = React.useCallback(() => {
@@ -68,6 +69,13 @@ export function TokenSaverPage({ api }) {
   React.useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  React.useEffect(() => {
+    api
+      .getHeadroomStatus()
+      .then(setHeadroom)
+      .catch(() => setHeadroom(false));
+  }, [api]);
 
   const patch = (change) => {
     setError("");
@@ -223,7 +231,52 @@ export function TokenSaverPage({ api }) {
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Headroom and pxpipe controls are blocked in the experimental build."
+        "Caveman and RTK act on plain settings. Headroom start/stop and pxpipe are blocked in the experimental build."
+      )
+    ),
+    h(
+      "div",
+      {
+        testId: "saver-headroom",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: theme.panel,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 10,
+          padding: 16,
+          gap: 8,
+        },
+      },
+      h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Headroom"),
+      headroom === null
+        ? h("text", { testId: "saver-headroom-loading", style: { color: theme.muted, fontSize: 12 } }, "Reading status...")
+        : headroom === false
+          ? h("text", { testId: "saver-headroom-unavailable", style: { color: theme.muted, fontSize: 12 } }, "Status unavailable.")
+          : h(
+              "div",
+              { style: { display: "flex", flexDirection: "column", gap: 4 } },
+              h(
+                "text",
+                { testId: "saver-headroom-installed", style: { color: theme.text, fontSize: 12 } },
+                `Installed: ${headroom.installed ? "yes" : "no"} · running: ${headroom.running ? "yes" : "no"}`
+              ),
+              h(
+                "text",
+                { testId: "saver-headroom-version", style: { color: theme.muted, fontSize: 11 } },
+                `Version: ${headroom.version || "unknown"}`
+              ),
+              h(
+                "text",
+                { testId: "saver-headroom-url", style: { color: theme.muted, fontSize: 11 } },
+                `URL: ${headroom.url || "unknown"}`
+              )
+            ),
+      h(
+        "text",
+        { style: { color: theme.muted, fontSize: 11 } },
+        "Read-only read-out; starting or stopping headroom stays on the dashboard."
       )
     )
   );
