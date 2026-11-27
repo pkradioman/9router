@@ -184,6 +184,24 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(setAlias.status).toBe(200);
     expect((await call("/api/models/alias?alias=gpuix-alias", { method: "DELETE" })).status).toBe(200);
 
+    // Endpoint access controls: the require-API-key policy round-trips and the
+    // read-only tunnel status answers. The original policy is restored.
+    const currentSettings = await call("/api/settings");
+    expect(currentSettings.status).toBe(200);
+    const flipped = await call("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ requireApiKey: currentSettings.body.requireApiKey !== true }),
+    });
+    expect(flipped.status).toBe(200);
+    await call("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ requireApiKey: currentSettings.body.requireApiKey === true }),
+    });
+
+    const tunnel = await call("/api/tunnel/status");
+    expect(tunnel.status).toBe(200);
+    expect(tunnel.body).toHaveProperty("tunnel");
+
     await supervisor.stop();
 
     // 1. Gateway state landed in the isolated data dir and nowhere else.

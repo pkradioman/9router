@@ -238,6 +238,15 @@ describe("createGatewayApi", () => {
     expect(JSON.parse(calls[6].init.body)).toEqual({ providerAlias: "open ai", id: "my model", type: "llm" });
   });
 
+  it("reads tunnel and tailscale status", async () => {
+    const body = { tunnel: { publicUrl: "https://probe.trycloudflare.com" }, tailscale: null };
+    const { calls, fetchImpl } = fakeFetch(() => json(body));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getTunnelStatus()).toEqual(body);
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/tunnel/status");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

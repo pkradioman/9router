@@ -1,9 +1,10 @@
 // Native Endpoint & Key page: the dashboard's landing screen.
 //
 // Mirrors the parts that make sense in the isolated shell: the local endpoint
-// rows, gateway status, and API key management (list, create, enable/disable,
-// delete). Tunnel and per-key access controls are not native yet and are called
-// out as pending instead of being faked.
+// rows, gateway status, the require-API-key policy, tunnel/tailscale status
+// read-out, and API key management (list, create, enable/disable, delete).
+// Creating tunnels and per-key access controls beyond the allow-list are not
+// native yet and are called out as pending instead of being faked.
 import React from "react";
 import { theme } from "./theme.mjs";
 
@@ -164,6 +165,9 @@ export function EndpointPage({ api, status, onRefresh }) {
   const [error, setError] = React.useState("");
   const [draftName, setDraftName] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const [requireApiKey, setRequireApiKey] = React.useState(null);
+  const [tunnel, setTunnel] = React.useState(null);
+  const [tailscale, setTailscale] = React.useState(null);
 
   const load = React.useCallback(() => {
     setError("");
@@ -180,6 +184,23 @@ export function EndpointPage({ api, status, onRefresh }) {
   React.useEffect(() => {
     load();
   }, [load]);
+
+  React.useEffect(() => {
+    api
+      .getSettings()
+      .then((settings) => setRequireApiKey(settings?.requireApiKey === true))
+      .catch(() => setRequireApiKey(false));
+    api
+      .getTunnelStatus()
+      .then((body) => {
+        setTunnel(body?.tunnel || null);
+        setTailscale(body?.tailscale || null);
+      })
+      .catch(() => {
+        setTunnel(null);
+        setTailscale(null);
+      });
+  }, [api]);
 
   const guard = (work) => {
     setBusy(true);
@@ -213,6 +234,11 @@ export function EndpointPage({ api, status, onRefresh }) {
 
   const setAccess = (item, access) => {
     void guard(api.updateKey(item.id, { access }).then(load));
+  };
+
+  const toggleRequireKey = () => {
+    const next = requireApiKey !== true;
+    void guard(api.patchSettings({ requireApiKey: next }).then(() => setRequireApiKey(next)));
   };
 
   return h(
@@ -251,6 +277,45 @@ export function EndpointPage({ api, status, onRefresh }) {
           "Refresh status"
         ),
         h("text", { style: { color: theme.muted, fontSize: 11 } }, `Data: ${status.dataDir}`)
+      )
+    ),
+    h(
+      Section,
+      { title: "Access", testId: "access-section" },
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+        h("text", { style: { color: theme.muted, fontSize: 12, width: 92 } }, "Require API key"),
+        h(
+          "text",
+          {
+            testId: "endpoint-require-key",
+            role: "button",
+            onClick: busy || requireApiKey === null ? () => {} : toggleRequireKey,
+            style: {
+              color: requireApiKey === null ? theme.muted : requireApiKey ? theme.ok : theme.muted,
+              fontSize: 12,
+              cursor: busy || requireApiKey === null ? "default" : "pointer",
+              hover: busy || requireApiKey === null ? {} : { color: theme.text },
+            },
+          },
+          requireApiKey === null ? "Loading..." : requireApiKey ? "Enabled" : "Disabled"
+        )
+      ),
+      h(EndpointRow, {
+        label: "Tunnel URL",
+        value: (tunnel && (tunnel.publicUrl || tunnel.url)) || "not enabled",
+        testId: "endpoint-tunnel",
+      }),
+      h(EndpointRow, {
+        label: "Tailscale URL",
+        value: (tailscale && (tailscale.tunnelUrl || tailscale.url)) || "not enabled",
+        testId: "endpoint-tailscale",
+      }),
+      h(
+        "text",
+        { style: { color: theme.muted, fontSize: 11 } },
+        "Creating tunnels stays on the dashboard because it installs and runs helper processes."
       )
     ),
     h(
@@ -305,7 +370,7 @@ export function EndpointPage({ api, status, onRefresh }) {
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Tunnel sharing is not native yet. Access control restricts a key to the listed model IDs."
+        "Tunnels are read-only here. Access control restricts a key to the listed model IDs."
       )
     )
   );

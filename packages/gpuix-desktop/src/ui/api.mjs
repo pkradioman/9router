@@ -106,6 +106,7 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     },
     clearConsoleLogs: () => request("/api/translator/console-logs", { method: "DELETE" }),
     getSettings: () => request("/api/settings"),
+    getTunnelStatus: () => request("/api/tunnel/status"),
     patchSettings: (patch) => request("/api/settings", { method: "PATCH", body: patch }),
     getTokenSaverStats: (period) => request(`/api/token-saver/stats?period=${encodeURIComponent(period)}`),
     listProxyPools: async () => {

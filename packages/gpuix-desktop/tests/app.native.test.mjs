@@ -45,6 +45,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     cavemanLevel: "full",
     rtkEnabled: true,
     requireLogin: true,
+    requireApiKey: true,
     tunnelDashboardAccess: false,
     hasPassword: true,
   };
@@ -124,6 +125,11 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     getConsoleLogs: vi.fn(async () => ["[INFO] gateway booted", "[ERROR] upstream refused"]),
     clearConsoleLogs: vi.fn(async () => ({ success: true })),
     getSettings: vi.fn(async () => ({ ...fakeSettings })),
+    getTunnelStatus: vi.fn(async () => ({
+      tunnel: { publicUrl: "https://probe.trycloudflare.com" },
+      tailscale: null,
+      download: {},
+    })),
     patchSettings: vi.fn(async (patch) => {
       fakeSettings = { ...fakeSettings, ...patch };
       return fakeSettings;
@@ -201,6 +207,25 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("sk-live-1");
     expect(painted).toContain("Active");
     expect(painted).toContain("soon");
+  });
+
+  it("shows the access policy and tunnel status and toggles require-API-key", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Require API key");
+    expect(painted).toContain("Enabled");
+    expect(painted).toContain("https://probe.trycloudflare.com");
+    expect(painted).toContain("not enabled");
+
+    click(root.renderer, "endpoint-require-key");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenCalledWith({ requireApiKey: false });
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Disabled");
   });
 
   it("creates a key from the name field", async () => {
