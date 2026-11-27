@@ -436,4 +436,19 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("Not installed");
     expect(painted).toContain("Unavailable");
   });
+
+  it("shows the agent skills list with raw URLs", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-skills");
+    await settle(root);
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Agent skills");
+    expect(painted).toContain("9Router (Entry)");
+    expect(painted).toContain("/v1/chat/completions");
+    expect(painted).toContain("/skills/9router-web-fetch/SKILL.md");
+  });
 });

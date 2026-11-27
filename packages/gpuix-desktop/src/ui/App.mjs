@@ -14,6 +14,7 @@ import { ConsoleLogPage } from "./ConsoleLogPage.mjs";
 import { TokenSaverPage } from "./TokenSaverPage.mjs";
 import { ProxyPoolsPage } from "./ProxyPoolsPage.mjs";
 import { CliToolsPage } from "./CliToolsPage.mjs";
+import { SkillsPage } from "./SkillsPage.mjs";
 import { StatusPanel } from "./StatusPanel.mjs";
 
 const h = React.createElement;
@@ -30,7 +31,7 @@ const PAGES = [
   { id: "translator", label: "Translator", enabled: false },
   { id: "console-log", label: "Console Log", enabled: true },
   { id: "proxy-pools", label: "Proxy Pools", enabled: true },
-  { id: "skills", label: "Skills", enabled: false },
+  { id: "skills", label: "Skills", enabled: true },
 ];
 
 export function App({ api, status, onRefresh }) {
@@ -108,6 +109,7 @@ export function App({ api, status, onRefresh }) {
   else if (page === "token-saver") content = h(TokenSaverPage, { api });
   else if (page === "proxy-pools") content = h(ProxyPoolsPage, { api });
   else if (page === "cli-tools") content = h(CliToolsPage, { api });
+  else if (page === "skills") content = h(SkillsPage);
   else content = h(EndpointPage, { api, status, onRefresh });
 
   return h(
