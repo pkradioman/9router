@@ -25,7 +25,9 @@
     "desktop:stage": "node scripts/desktop-build.mjs --stage-only",
     "desktop:pack:win": "electron-builder --win nsis portable --config electron-builder.yml -c.win.signAndEditExecutable=true",
     "desktop:pack:linux": "electron-builder --linux AppImage --x64 --config electron-builder.yml",
-    "repair:usage-costs": "node --experimental-default-type=module scripts/repair-usage-costs.mjs"
+    "repair:usage-costs": "node --experimental-default-type=module scripts/repair-usage-costs.mjs",
+    "desktop:install:win": "node scripts/desktop-install.mjs",
+    "desktop:install:check": "node scripts/desktop-install.mjs --check"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

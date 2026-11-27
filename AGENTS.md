@@ -98,9 +98,9 @@ tar -xzf desktop-app.tgz -C desktop-app
 # 4. package on Windows
 npm run desktop:pack:win
 
-# 5. install (silent) and start
-dist-electron\9Router-<version>-setup.exe /S
-"%LOCALAPPDATA%\Programs\9Router\9Router.exe"
+# 5. install (silent) + relaunch + verify — never call the setup .exe by hand
+npm run desktop:install:check   # preflight: artifact, no stray wizard, installed version
+npm run desktop:install:win     # install, verify install dir mtime, relaunch, /api/version + health
 ```
 
 Rules:
@@ -110,11 +110,13 @@ Rules:
   Every build is exercised on the staging instance first, and the production install waits
   for the owner's explicit go-ahead (see Staging → production).
 - `desktop-app/` and `desktop-dist/` are build outputs; never commit them.
-- Run the installer from Git Bash as `MSYS_NO_PATHCONV=1 ./dist-electron/9Router-<ver>-setup.exe /S`.
-  Plain `/S` gets mangled into a path by MSYS and opens the assisted wizard instead, which
-  also closes the running app before the user ever confirms — production goes down for
-  nothing. Verify silence: no `9Router Setup` window and the install dir's `9Router.exe`
-  mtime updates within ~1 min.
+- **Only `npm run desktop:install:win` installs production.** It spawns the NSIS setup with
+  argv `["/S"]` directly (no shell), so MSYS cannot rewrite the flag into a path. If invoked
+  from Git Bash by hand, `/S` becomes a path, NSIS opens the assisted wizard, and that wizard
+  closes the running app on start — production goes down before anything is installed. That
+  happened twice; do not reintroduce a raw `setup.exe /S` step. The script also fails if a
+  setup process is already running, if the install dir mtime did not change, or if
+  `/api/version` does not report the new version.
 
 ## Staging → production
 
@@ -161,7 +163,7 @@ A task is finished only when all of these are true:
 - [ ] sandbox build succeeded and the sha256 of `desktop-app.tgz` was verified after copy
 - [ ] staging instance (20129, separate data dir) passed every check above
 - [ ] owner confirmed the promotion
-- [ ] `dist-electron/9Router-<version>-setup.exe` installed
+- [ ] `npm run desktop:install:win` installed `dist-electron/9Router-<version>-setup.exe` and verified it
 - [ ] app relaunched and every row of the verification table below passes
 - [ ] version tagged `fork-v<version>` + pushed
 - [ ] `AGENTS.md` → Current state reflects the new version and what is still pending
