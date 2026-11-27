@@ -7,8 +7,9 @@ import { theme } from "./theme.mjs";
 
 const h = React.createElement;
 
-function ProviderRow({ item, onToggle, onDelete, onUpdate, busy }) {
+function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
   const [editing, setEditing] = React.useState(false);
+  const [testState, setTestState] = React.useState({ phase: "idle", message: "" });
   const [draftName, setDraftName] = React.useState(item.name || "");
   const [draftModel, setDraftModel] = React.useState(item.defaultModel || "");
   const [draftPriority, setDraftPriority] = React.useState(
@@ -25,6 +26,16 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, busy }) {
     }
     onUpdate(item, patch);
     setEditing(false);
+  };
+
+  const runTest = () => {
+    setTestState({ phase: "running", message: "" });
+    onTest(item)
+      .then((result) => {
+        if (result && result.valid) setTestState({ phase: "ok", message: "Test passed" });
+        else setTestState({ phase: "fail", message: `Test failed: ${(result && result.error) || "no details"}` });
+      })
+      .catch((err) => setTestState({ phase: "fail", message: `Test failed: ${err.message}` }));
   };
 
   return h(
@@ -53,6 +64,21 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, busy }) {
           { style: { color: theme.muted, fontSize: 11 } },
           [item.provider, item.authType, item.email, item.defaultModel].filter(Boolean).join(" · ")
         )
+      ),
+      h(
+        "text",
+        {
+          testId: `provider-test-${item.id}`,
+          role: "button",
+          onClick: () => (busy || testState.phase === "running" ? null : runTest()),
+          style: {
+            color: testState.phase === "ok" ? theme.ok : testState.phase === "fail" ? theme.bad : theme.muted,
+            fontSize: 11,
+            cursor: busy ? "default" : "pointer",
+            hover: busy ? {} : { color: theme.text },
+          },
+        },
+        testState.phase === "running" ? "Testing..." : "Test"
       ),
       h(
         "text",
@@ -90,6 +116,16 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, busy }) {
         "Delete"
       )
     ),
+    testState.phase === "ok" || testState.phase === "fail"
+      ? h(
+          "text",
+          {
+            testId: `provider-test-result-${item.id}`,
+            style: { color: testState.phase === "ok" ? theme.ok : theme.bad, fontSize: 10 },
+          },
+          testState.message
+        )
+      : null,
     editing
       ? h(
           "div",
@@ -345,7 +381,15 @@ export function ProvidersPage({ api }) {
               "div",
               { style: { display: "flex", flexDirection: "column" } },
               providers.map((item) =>
-                h(ProviderRow, { key: item.id, item, onToggle: toggle, onDelete: remove, onUpdate: update, busy })
+                h(ProviderRow, {
+                  key: item.id,
+                  item,
+                  onToggle: toggle,
+                  onDelete: remove,
+                  onUpdate: update,
+                  onTest: (target) => api.testProvider(target.id),
+                  busy,
+                })
               )
             ),
       h(

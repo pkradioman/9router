@@ -190,6 +190,15 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/usage/request-details?page=3&pageSize=10");
   });
 
+  it("posts a provider connection test", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ valid: true }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.testProvider("p 1")).toEqual({ valid: true });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/providers/p%201/test");
+    expect(calls[0].init.method).toBe("POST");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

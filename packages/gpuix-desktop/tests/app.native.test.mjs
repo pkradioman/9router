@@ -78,6 +78,10 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       providers = providers.filter((item) => item.id !== id);
       return { success: true };
     }),
+    testProvider: vi.fn(async (id) => {
+      if (id === "p2") return { valid: false, error: "invalid key" };
+      return { valid: true, refreshed: false };
+    }),
     getUsageStats: vi.fn(async (period) => ({
       totalRequests: period === "7d" ? 42 : 7,
       totalPromptTokens: 1000,
@@ -310,6 +314,28 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "provider-save-p1");
     await settle(root);
     expect(api.updateProvider).toHaveBeenCalledWith("p1", { name: "Work", defaultModel: "gpt-4o", priority: 1 });
+  });
+
+  it("tests provider connections and shows the result", async () => {
+    const api = createFakeApi([], [
+      { id: "p1", name: "Good", provider: "openai", authType: "apikey", isActive: true },
+      { id: "p2", name: "Bad", provider: "openai", authType: "apikey", isActive: true },
+    ]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    click(root.renderer, "provider-test-p1");
+    await settle(root);
+    expect(api.testProvider).toHaveBeenCalledWith("p1");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Test passed");
+
+    click(root.renderer, "provider-test-p2");
+    await settle(root);
+    expect(api.testProvider).toHaveBeenLastCalledWith("p2");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Test failed: invalid key");
   });
 
   it("adds an API-key provider connection and deletes it", async () => {
