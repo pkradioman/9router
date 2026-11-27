@@ -64,6 +64,14 @@ describe("createGatewayApi", () => {
     expect(calls[1].init.headers["x-9r-cli-token"]).toBe("tok");
   });
 
+  it("requests usage stats for the selected period", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ totalRequests: 3 }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getUsageStats("7d")).toEqual({ totalRequests: 3 });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/usage/stats?period=7d");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

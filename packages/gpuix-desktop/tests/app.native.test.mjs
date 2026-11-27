@@ -58,6 +58,16 @@ function createFakeApi(initial = [], providerSeed = []) {
       providers = providers.map((item) => (item.id === id ? { ...item, ...patch } : item));
       return { provider: providers.find((item) => item.id === id) };
     }),
+    getUsageStats: vi.fn(async (period) => ({
+      totalRequests: period === "7d" ? 42 : 7,
+      totalPromptTokens: 1000,
+      totalCompletionTokens: 200,
+      totalCost: 0.1234,
+      byProvider: { openai: { requests: 40, promptTokens: 900, completionTokens: 180, cost: 0.11 } },
+      recentRequests: [
+        { timestamp: "2026-11-28T01:00:00Z", model: "gpt-4o", provider: "openai", promptTokens: 10, completionTokens: 5 },
+      ],
+    })),
   };
   api.snapshot = () => keys;
   return api;
@@ -173,5 +183,28 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     const paintedAfter = root.renderer.getPaintedText().join("\n");
     expect(paintedAfter).toContain("Work OpenAI");
     expect(paintedAfter).toContain("Disabled");
+  });
+
+  it("shows usage totals and switches the period", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-usage");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("42");
+    expect(painted).toContain("1200");
+    expect(painted).toContain("$0.1234");
+    expect(painted).toContain("gpt-4o");
+    expect(painted).toContain("openai");
+    expect(api.getUsageStats).toHaveBeenCalledWith("7d");
+
+    click(root.renderer, "usage-period-24h");
+    await settle(root);
+    expect(api.getUsageStats).toHaveBeenLastCalledWith("24h");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("7");
   });
 });

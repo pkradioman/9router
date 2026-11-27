@@ -50,5 +50,6 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       return (body && body.connections) || [];
     },
     updateProvider: (id, patch) => request(`/api/providers/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
+    getUsageStats: (period) => request(`/api/usage/stats?period=${encodeURIComponent(period)}`),
   };
 }

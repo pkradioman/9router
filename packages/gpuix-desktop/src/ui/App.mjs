@@ -8,6 +8,7 @@ import { theme } from "./theme.mjs";
 import { STATUS } from "./status-model.mjs";
 import { EndpointPage } from "./EndpointPage.mjs";
 import { ProvidersPage } from "./ProvidersPage.mjs";
+import { UsagePage } from "./UsagePage.mjs";
 import { StatusPanel } from "./StatusPanel.mjs";
 
 const h = React.createElement;
@@ -17,7 +18,7 @@ const PAGES = [
   { id: "status", label: "Gateway status", enabled: true },
   { id: "providers", label: "Providers", enabled: true },
   { id: "combos", label: "Combo & Vision Adapter", enabled: false },
-  { id: "usage", label: "Usage", enabled: false },
+  { id: "usage", label: "Usage", enabled: true },
   { id: "quota", label: "Quota Tracker", enabled: false },
   { id: "token-saver", label: "Token Saver", enabled: false },
   { id: "cli-tools", label: "CLI Tools", enabled: false },
@@ -96,6 +97,7 @@ export function App({ api, status, onRefresh }) {
   let content;
   if (page === "status") content = h(StatusPanel, { status, onRefresh });
   else if (page === "providers") content = h(ProvidersPage, { api });
+  else if (page === "usage") content = h(UsagePage, { api });
   else content = h(EndpointPage, { api, status, onRefresh });
 
   return h(
