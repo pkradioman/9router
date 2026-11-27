@@ -287,6 +287,20 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     ).toBe(200);
     expect((await call("/api/settings")).body.comboStrategies.gpuixprobe).toBeUndefined();
 
+    // Outbound proxy settings round-trip; the probe URL is a closed loopback
+    // port, so the gateway's own proxy test fails fast without dialing out.
+    const proxySave = await call("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ outboundProxyEnabled: false, outboundProxyUrl: "", outboundNoProxy: "" }),
+    });
+    expect(proxySave.status).toBe(200);
+    expect((await call("/api/settings")).body.outboundProxyUrl).toBe("");
+    const proxyTest = await call("/api/settings/proxy-test", {
+      method: "POST",
+      body: JSON.stringify({ proxyUrl: "http://127.0.0.1:9" }),
+    });
+    expect(proxyTest.body.ok).toBe(false);
+
     // Provider node edit: create a chat node, rename it through PUT, delete it.
     const createdNode = await call("/api/provider-nodes", {
       method: "POST",

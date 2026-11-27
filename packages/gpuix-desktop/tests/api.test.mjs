@@ -257,6 +257,16 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/tunnel/status");
   });
 
+  it("tests an outbound proxy url", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ ok: true, status: 200, elapsedMs: 12 }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.testProxyUrl("http://127.0.0.1:9")).toEqual({ ok: true, status: 200, elapsedMs: 12 });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/settings/proxy-test");
+    expect(calls[0].init.method).toBe("POST");
+    expect(JSON.parse(calls[0].init.body)).toEqual({ proxyUrl: "http://127.0.0.1:9" });
+  });
+
   it("updates a provider node", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ node: { id: "n 1" } }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

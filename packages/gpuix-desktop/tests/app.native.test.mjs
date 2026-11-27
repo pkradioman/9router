@@ -47,6 +47,9 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     requireLogin: true,
     requireApiKey: true,
     comboStrategies: {},
+    outboundProxyEnabled: false,
+    outboundProxyUrl: "",
+    outboundNoProxy: "",
     tunnelDashboardAccess: false,
     hasPassword: true,
   };
@@ -139,6 +142,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       fakeSettings = { ...fakeSettings, ...patch };
       return fakeSettings;
     }),
+    testProxyUrl: vi.fn(async () => ({ ok: true, status: 200, elapsedMs: 12 })),
     getTokenSaverStats: vi.fn(async () => ({
       rtk: { hitRequests: 3, bytesSaved: 1200 },
       caveman: { onRequests: 5, offRequests: 1 },
@@ -827,6 +831,39 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.patchSettings).toHaveBeenLastCalledWith({ tunnelDashboardAccess: true });
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("Enabled");
+  });
+
+  it("saves and tests the outbound proxy", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-profile");
+    await settle(root);
+
+    const input = root.renderer.findByTestId("profile-proxy-url");
+    expect(input).toBeTruthy();
+    const bounds = root.renderer.getElementBounds(input.id);
+    root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(input.id, "h t t p : / / 1 2 7 . 0 . 0 . 1 : 9");
+    await settle(root);
+
+    click(root.renderer, "profile-proxy-enable");
+    await settle(root);
+    click(root.renderer, "profile-proxy-save");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      outboundProxyEnabled: true,
+      outboundProxyUrl: "http://127.0.0.1:9",
+      outboundNoProxy: "",
+    });
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Outbound proxy saved.");
+
+    click(root.renderer, "profile-proxy-test");
+    await settle(root);
+    expect(api.testProxyUrl).toHaveBeenCalledWith("http://127.0.0.1:9");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Proxy OK 200 12ms");
   });
 
   it("changes the dashboard password and rejects a mismatch", async () => {

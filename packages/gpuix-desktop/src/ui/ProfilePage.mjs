@@ -1,9 +1,9 @@
 // Native Profile & settings page (local slice of the dashboard profile).
 //
 // Only settings that are safe to flip from the isolated shell are exposed:
-// require-login, tunnel dashboard access and the dashboard password. Proxy,
-// tunnel setup and backup/restore stay in the dashboard because they need
-// external processes.
+// require-login, tunnel dashboard access, the dashboard password and the
+// gateway's outbound proxy. Tunnel setup and backup/restore stay in the
+// dashboard because they need external processes or file dialogs.
 import React from "react";
 import { theme } from "./theme.mjs";
 
@@ -39,6 +39,10 @@ export function ProfilePage({ api, status }) {
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [passwordStatus, setPasswordStatus] = React.useState("");
+  const [proxyEnabled, setProxyEnabled] = React.useState(false);
+  const [proxyUrl, setProxyUrl] = React.useState("");
+  const [proxyNoProxy, setProxyNoProxy] = React.useState("");
+  const [proxyStatus, setProxyStatus] = React.useState("");
 
   const load = React.useCallback(() => {
     setError("");
@@ -52,6 +56,13 @@ export function ProfilePage({ api, status }) {
   React.useEffect(() => {
     load();
   }, [load]);
+
+  React.useEffect(() => {
+    if (!settings) return;
+    setProxyEnabled(settings.outboundProxyEnabled === true);
+    setProxyUrl(settings.outboundProxyUrl || "");
+    setProxyNoProxy(settings.outboundNoProxy || "");
+  }, [settings]);
 
   const patch = (change) => {
     setError("");
@@ -88,7 +99,7 @@ export function ProfilePage({ api, status }) {
       .catch((err) => setPasswordStatus(err.message));
   };
 
-  const passwordField = (testId, label, value, onChange) =>
+  const labeledField = (testId, label, value, onChange) =>
     h(
       "div",
       { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 } },
@@ -101,6 +112,33 @@ export function ProfilePage({ api, status }) {
         style: { width: 200, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
       })
     );
+
+  // Outbound proxy applies to the gateway's own egress (upstream calls), not the
+  // shell. Saving pushes the env immediately, so it stays user-initiated.
+  const saveProxy = () => {
+    setProxyStatus("");
+    api
+      .patchSettings({
+        outboundProxyEnabled: proxyEnabled,
+        outboundProxyUrl: proxyUrl.trim(),
+        outboundNoProxy: proxyNoProxy.trim(),
+      })
+      .then((next) => {
+        setSettings(next);
+        setProxyStatus("Outbound proxy saved.");
+      })
+      .catch((err) => setProxyStatus(err.message));
+  };
+
+  const testProxy = () => {
+    setProxyStatus("Testing...");
+    api
+      .testProxyUrl(proxyUrl.trim())
+      .then((result) =>
+        setProxyStatus(result.ok ? `Proxy OK ${result.status || ""} ${result.elapsedMs || 0}ms`.trim() : `Failed: ${result.error || result.status}`)
+      )
+      .catch((err) => setProxyStatus(`Failed: ${err.message}`));
+  };
 
   return h(
     "div",
@@ -158,6 +196,75 @@ export function ProfilePage({ api, status }) {
             h(
               "div",
               {
+                testId: "profile-proxy-section",
+                style: {
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  paddingTop: 10,
+                  borderTopWidth: 1,
+                  borderColor: theme.border,
+                },
+              },
+              h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, "Outbound proxy"),
+              h(
+                "text",
+                { style: { color: theme.muted, fontSize: 10 } },
+                "Applies to the gateway's upstream calls; saving is immediate."
+              ),
+              h(
+                "div",
+                { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 } },
+                h("text", { style: { color: theme.muted, fontSize: 11, width: 120 } }, "Enabled"),
+                h(
+                  "text",
+                  {
+                    testId: "profile-proxy-enable",
+                    role: "button",
+                    onClick: () => setProxyEnabled((value) => !value),
+                    style: {
+                      color: proxyEnabled ? theme.ok : theme.muted,
+                      fontSize: 11,
+                      cursor: "pointer",
+                      hover: { color: theme.text },
+                    },
+                  },
+                  proxyEnabled ? "Enabled" : "Disabled"
+                )
+              ),
+              labeledField("profile-proxy-url", "Proxy URL", proxyUrl, setProxyUrl),
+              labeledField("profile-proxy-noproxy", "No proxy", proxyNoProxy, setProxyNoProxy),
+              h(
+                "div",
+                { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 16 } },
+                h(
+                  "text",
+                  {
+                    testId: "profile-proxy-save",
+                    role: "button",
+                    onClick: saveProxy,
+                    style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+                  },
+                  "Save proxy"
+                ),
+                h(
+                  "text",
+                  {
+                    testId: "profile-proxy-test",
+                    role: "button",
+                    onClick: testProxy,
+                    style: { color: theme.muted, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+                  },
+                  "Test"
+                )
+              ),
+              proxyStatus
+                ? h("text", { testId: "profile-proxy-status", style: { color: theme.muted, fontSize: 10 } }, proxyStatus)
+                : null
+            ),
+            h(
+              "div",
+              {
                 testId: "profile-password-section",
                 style: {
                   display: "flex",
@@ -175,10 +282,10 @@ export function ProfilePage({ api, status }) {
                 "Fields are not masked here (GPUIX has no masked input); the gateway stores only the bcrypt hash."
               ),
               settings.hasPassword
-                ? passwordField("profile-current-password", "Current password", currentPassword, setCurrentPassword)
+                ? labeledField("profile-current-password", "Current password", currentPassword, setCurrentPassword)
                 : null,
-              passwordField("profile-new-password", "New password", newPassword, setNewPassword),
-              passwordField("profile-confirm-password", "Confirm password", confirmPassword, setConfirmPassword),
+              labeledField("profile-new-password", "New password", newPassword, setNewPassword),
+              labeledField("profile-confirm-password", "Confirm password", confirmPassword, setConfirmPassword),
               h(
                 "text",
                 {
@@ -202,7 +309,7 @@ export function ProfilePage({ api, status }) {
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Outbound proxy, tunnel setup and backup/restore are not native yet."
+        "Tunnel setup and backup/restore are not native yet."
       )
     )
   );
