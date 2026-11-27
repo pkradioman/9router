@@ -79,6 +79,8 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = []) {
       combos = combos.filter((item) => item.id !== id);
       return { success: true };
     }),
+    getConsoleLogs: vi.fn(async () => ["[INFO] gateway booted", "[ERROR] upstream refused"]),
+    clearConsoleLogs: vi.fn(async () => ({ success: true })),
   };
   api.snapshot = () => keys;
   return api;
@@ -247,5 +249,27 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.deleteCombo).toHaveBeenCalledWith("c0");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).not.toContain("fast-first");
+  });
+
+  it("shows console log lines and clears them", async () => {
+    const api = createFakeApi();
+    api.getConsoleLogs
+      .mockResolvedValueOnce(["[INFO] gateway booted", "[ERROR] upstream refused"])
+      .mockResolvedValue([]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-console-log");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("[INFO] gateway booted");
+    expect(painted).toContain("[ERROR] upstream refused");
+
+    click(root.renderer, "console-clear");
+    await settle(root);
+    expect(api.clearConsoleLogs).toHaveBeenCalledOnce();
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).not.toContain("upstream refused");
   });
 });

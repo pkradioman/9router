@@ -90,6 +90,18 @@ describe("createGatewayApi", () => {
     expect(calls[2].init.method).toBe("DELETE");
   });
 
+  it("fetches and clears console logs", async () => {
+    const { calls, fetchImpl } = fakeFetch((url, init) =>
+      init.method === "DELETE" ? json({ success: true }) : json({ success: true, logs: ["[INFO] a"] })
+    );
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getConsoleLogs()).toEqual(["[INFO] a"]);
+    await api.clearConsoleLogs();
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/translator/console-logs");
+    expect(calls[1].init.method).toBe("DELETE");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

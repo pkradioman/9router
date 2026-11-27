@@ -57,5 +57,10 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     },
     createCombo: (name) => request("/api/combos", { method: "POST", body: { name } }),
     deleteCombo: (id) => request(`/api/combos/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    getConsoleLogs: async () => {
+      const body = await request("/api/translator/console-logs");
+      return (body && body.logs) || [];
+    },
+    clearConsoleLogs: () => request("/api/translator/console-logs", { method: "DELETE" }),
   };
 }

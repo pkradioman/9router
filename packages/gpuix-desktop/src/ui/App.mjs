@@ -10,6 +10,7 @@ import { EndpointPage } from "./EndpointPage.mjs";
 import { ProvidersPage } from "./ProvidersPage.mjs";
 import { UsagePage } from "./UsagePage.mjs";
 import { CombosPage } from "./CombosPage.mjs";
+import { ConsoleLogPage } from "./ConsoleLogPage.mjs";
 import { StatusPanel } from "./StatusPanel.mjs";
 
 const h = React.createElement;
@@ -24,7 +25,7 @@ const PAGES = [
   { id: "token-saver", label: "Token Saver", enabled: false },
   { id: "cli-tools", label: "CLI Tools", enabled: false },
   { id: "translator", label: "Translator", enabled: false },
-  { id: "console-log", label: "Console Log", enabled: false },
+  { id: "console-log", label: "Console Log", enabled: true },
   { id: "proxy-pools", label: "Proxy Pools", enabled: false },
   { id: "skills", label: "Skills", enabled: false },
 ];
@@ -100,6 +101,7 @@ export function App({ api, status, onRefresh }) {
   else if (page === "providers") content = h(ProvidersPage, { api });
   else if (page === "usage") content = h(UsagePage, { api });
   else if (page === "combos") content = h(CombosPage, { api });
+  else if (page === "console-log") content = h(ConsoleLogPage, { api });
   else content = h(EndpointPage, { api, status, onRefresh });
 
   return h(
