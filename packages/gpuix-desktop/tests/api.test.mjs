@@ -247,6 +247,16 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/tunnel/status");
   });
 
+  it("updates a combo by id", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ id: "c 1", name: "mix", models: [] }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.updateCombo("c 1", { name: "mix", models: ["openai/gpt-4o"] });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/combos/c%201");
+    expect(calls[0].init.method).toBe("PUT");
+    expect(JSON.parse(calls[0].init.body)).toEqual({ name: "mix", models: ["openai/gpt-4o"] });
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

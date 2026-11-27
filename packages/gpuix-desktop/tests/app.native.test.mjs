@@ -118,6 +118,10 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       combos = [created, ...combos];
       return created;
     }),
+    updateCombo: vi.fn(async (id, patch) => {
+      combos = combos.map((item) => (item.id === id ? { ...item, ...patch } : item));
+      return { combo: combos.find((item) => item.id === id) };
+    }),
     deleteCombo: vi.fn(async (id) => {
       combos = combos.filter((item) => item.id !== id);
       return { success: true };
@@ -506,6 +510,37 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.deleteCombo).toHaveBeenCalledWith("c0");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).not.toContain("fast-first");
+  });
+
+  it("edits a combo's ordered models", async () => {
+    const api = createFakeApi([], [], [{ id: "c1", name: "mix", kind: null, models: ["openai/gpt-4o"] }]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-combos");
+    await settle(root);
+    click(root.renderer, "combo-edit-c1");
+    await settle(root);
+
+    const input = root.renderer.findByTestId("combo-model-add-input-c1");
+    const bounds = root.renderer.getElementBounds(input.id);
+    root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(input.id, "a n t h r o p i c / c l a u d e");
+    await settle(root);
+    click(root.renderer, "combo-model-add-c1");
+    await settle(root);
+
+    click(root.renderer, "combo-model-up-c1-1");
+    await settle(root);
+    click(root.renderer, "combo-save-c1");
+    await settle(root);
+
+    expect(api.updateCombo).toHaveBeenCalledWith("c1", {
+      name: "mix",
+      models: ["anthropic/claude", "openai/gpt-4o"],
+    });
+    expect(root.renderer.getPaintedText().join("\n")).toContain("2 models");
   });
 
   it("shows console log lines and clears them", async () => {

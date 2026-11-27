@@ -202,6 +202,21 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(tunnel.status).toBe(200);
     expect(tunnel.body).toHaveProperty("tunnel");
 
+    // Combo editing: create, replace the ordered model list, delete.
+    const createdCombo = await call("/api/combos", {
+      method: "POST",
+      body: JSON.stringify({ name: `gpuix-probe-${Date.now()}` }),
+    });
+    expect(createdCombo.status).toBe(201);
+    const comboId = createdCombo.body.id;
+    const updatedCombo = await call(`/api/combos/${encodeURIComponent(comboId)}`, {
+      method: "PUT",
+      body: JSON.stringify({ models: ["openai/gpt-4o"] }),
+    });
+    expect(updatedCombo.status).toBe(200);
+    expect(updatedCombo.body.models).toEqual(["openai/gpt-4o"]);
+    expect((await call(`/api/combos/${encodeURIComponent(comboId)}`, { method: "DELETE" })).status).toBe(200);
+
     await supervisor.stop();
 
     // 1. Gateway state landed in the isolated data dir and nowhere else.
