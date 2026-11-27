@@ -1,12 +1,13 @@
 import { spawn } from "node:child_process";
 
 export class TrayController {
-  constructor({ createTray, icon, windowEntry, status, onQuit, spawnWindow = spawn }) {
+  constructor({ createTray, icon, windowEntry, status, onQuit, cliToken = null, spawnWindow = spawn }) {
     this.createTray = createTray;
     this.icon = icon;
     this.windowEntry = windowEntry;
     this.status = status;
     this.onQuit = onQuit;
+    this.cliToken = cliToken;
     this.spawnWindow = spawnWindow;
     this.window = null;
     this.tray = null;
@@ -65,7 +66,11 @@ export class TrayController {
     }
     this.pendingOpen = false;
     const child = this.spawnWindow(process.execPath, [this.windowEntry, "--gpuix-window"], {
-      env: { ...process.env, GPU_UIX_WINDOW_STATUS: JSON.stringify(this.status) },
+      env: {
+        ...process.env,
+        GPU_UIX_WINDOW_STATUS: JSON.stringify(this.status),
+        GPU_UIX_CLI_TOKEN: this.cliToken || "",
+      },
       stdio: ["inherit", "inherit", "inherit", "ipc"],
     });
     this.window = child;

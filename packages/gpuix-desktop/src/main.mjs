@@ -18,6 +18,7 @@ import { askForPort } from "./port-prompt.mjs";
 import { acquireSingleInstance } from "./single-instance.mjs";
 import { runFirstImport, DEFAULT_SOURCE_URL } from "./import-client.mjs";
 import { activateIfAlive } from "./window-lifecycle.mjs";
+import { readCliToken } from "./cli-token.mjs";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -249,12 +250,16 @@ async function main() {
   const systray = await import("systray");
   const SysTray = systray.default.default || systray.default;
   const icon = fs.readFileSync(path.join(packageRoot, "dist", "icon.ico")).toString("base64");
+  // Local dashboard APIs accept this token, so the native pages work without a
+  // password prompt (GPUIX has no masked input yet).
+  const cliToken = readCliToken(isolation.dataDir);
   let closing = false;
   controller = new TrayController({
     createTray: (options) => new SysTray(options),
     icon,
     windowEntry: process.argv[1],
     status,
+    cliToken,
     onQuit: () => {
       if (closing) return;
       closing = true;
@@ -290,7 +295,9 @@ async function showPortPrompt(occupiedPort) {
 async function showWindow(status) {
   const React = (await import("react")).default;
   const { render, useGpuix } = await import("@gpuix/react");
-  const { StatusPanel } = await import("./ui/StatusPanel.mjs");
+  const { App } = await import("./ui/App.mjs");
+  const { createGatewayApi } = await import("./ui/api.mjs");
+  const api = createGatewayApi({ baseUrl: status.baseUrl, token: process.env.GPU_UIX_CLI_TOKEN || null });
 
   let activate;
   let pendingActivation = false;
@@ -300,7 +307,7 @@ async function showWindow(status) {
     else pendingActivation = true;
   });
   const h = React.createElement;
-  function App() {
+  function Shell() {
     const [current, setCurrent] = React.useState(status);
     const { renderer } = useGpuix();
     React.useEffect(() => {
@@ -318,11 +325,11 @@ async function showWindow(status) {
       setCurrent((prev) => ({ ...prev, phase: "connecting", lastError: null }));
       void refreshStatus(current).then(setCurrent);
     }, [current]);
-    return h(StatusPanel, { status: current, onRefresh });
+    return h(App, { api, status: current, onRefresh });
   }
 
   logBoot("creating window");
-  render(h(App), { title: "9Router (Experimental)", width: 1080, height: 720, focus: true, show: true });
+  render(h(Shell), { title: "9Router (Experimental)", width: 1080, height: 720, focus: true, show: true });
 }
 
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
