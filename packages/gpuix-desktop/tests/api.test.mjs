@@ -136,6 +136,20 @@ describe("createGatewayApi", () => {
     expect(calls[3].init.method).toBe("DELETE");
   });
 
+  it("creates and deletes provider connections", async () => {
+    const { calls, fetchImpl } = fakeFetch((url, init) =>
+      init.method === "DELETE" ? json({ success: true }) : json({ provider: { id: "p1" } }, 201)
+    );
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.createProvider({ provider: "openai", apiKey: "sk-test" });
+    await api.deleteProvider("p1");
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/providers");
+    expect(calls[0].init.body).toBe('{"provider":"openai","apiKey":"sk-test"}');
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/providers/p1");
+    expect(calls[1].init.method).toBe("DELETE");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

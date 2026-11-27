@@ -7,7 +7,7 @@ import { theme } from "./theme.mjs";
 
 const h = React.createElement;
 
-function ProviderRow({ item, onToggle, busy }) {
+function ProviderRow({ item, onToggle, onDelete, busy }) {
   return h(
     "div",
     {
@@ -47,6 +47,16 @@ function ProviderRow({ item, onToggle, busy }) {
         },
       },
       item.isActive === false ? "Disabled" : "Active"
+    ),
+    h(
+      "text",
+      {
+        testId: `provider-delete-${item.id}`,
+        role: "button",
+        onClick: () => (busy ? null : onDelete(item)),
+        style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
+      },
+      "Delete"
     )
   );
 }
@@ -55,6 +65,9 @@ export function ProvidersPage({ api }) {
   const [providers, setProviders] = React.useState(null);
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const [providerId, setProviderId] = React.useState("");
+  const [apiKey, setApiKey] = React.useState("");
+  const [name, setName] = React.useState("");
 
   const load = React.useCallback(() => {
     setError("");
@@ -81,6 +94,38 @@ export function ProvidersPage({ api }) {
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
   };
+
+  const create = () => {
+    if (!providerId.trim() || !apiKey.trim()) {
+      setError("Enter a provider ID and an API key.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    api
+      .createProvider({ provider: providerId.trim(), apiKey: apiKey.trim(), name: name.trim() || undefined })
+      .then(() => {
+        setProviderId("");
+        setApiKey("");
+        setName("");
+        load();
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
+  const remove = (item) => {
+    setBusy(true);
+    setError("");
+    api
+      .deleteProvider(item.id)
+      .then(load)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
+  const inputStyle = { width: 170, height: 30, color: theme.text, backgroundColor: theme.panelAlt };
+  const field = (props) => h("input", { ...props, style: inputStyle });
 
   return h(
     "div",
@@ -110,6 +155,53 @@ export function ProvidersPage({ api }) {
         },
       },
       h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Provider connections"),
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" } },
+        field({
+          testId: "provider-id-input",
+          "aria-label": "Provider ID",
+          value: providerId,
+          onChange: (event) => setProviderId(event.value ?? ""),
+          placeholder: "provider id (e.g. openai)",
+        }),
+        field({
+          testId: "provider-key-input",
+          "aria-label": "Provider API key",
+          value: apiKey,
+          onChange: (event) => setApiKey(event.value ?? ""),
+          placeholder: "API key",
+        }),
+        field({
+          testId: "provider-name-input",
+          "aria-label": "Connection name",
+          value: name,
+          onChange: (event) => setName(event.value ?? ""),
+          onSubmit: create,
+          placeholder: "name (optional)",
+        }),
+        h(
+          "text",
+          {
+            testId: "provider-create",
+            role: "button",
+            onClick: busy ? () => {} : create,
+            style: {
+              paddingTop: 6,
+              paddingBottom: 6,
+              paddingLeft: 12,
+              paddingRight: 12,
+              borderRadius: 8,
+              backgroundColor: theme.panelAlt,
+              color: busy ? theme.muted : theme.text,
+              fontSize: 12,
+              cursor: busy ? "default" : "pointer",
+              hover: busy ? {} : { backgroundColor: "#2e2e33" },
+            },
+          },
+          "Add connection"
+        )
+      ),
       error ? h("text", { testId: "providers-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
       providers === null
         ? h("text", { testId: "providers-loading", style: { color: theme.muted, fontSize: 12 } }, "Loading providers...")
@@ -123,13 +215,13 @@ export function ProvidersPage({ api }) {
               "div",
               { style: { display: "flex", flexDirection: "column" } },
               providers.map((item) =>
-                h(ProviderRow, { key: item.id, item, onToggle: toggle, busy })
+                h(ProviderRow, { key: item.id, item, onToggle: toggle, onDelete: remove, busy })
               )
             ),
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Adding connections, OAuth sign-in, proxy pools and model tests are not native yet."
+        "API-key connections only, entered without masking (GPUIX has no masked field). OAuth, proxy pools per connection and model tests are not native yet."
       )
     )
   );

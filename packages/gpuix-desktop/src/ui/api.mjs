@@ -50,6 +50,8 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       return (body && body.connections) || [];
     },
     updateProvider: (id, patch) => request(`/api/providers/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
+    createProvider: (body) => request("/api/providers", { method: "POST", body }),
+    deleteProvider: (id) => request(`/api/providers/${encodeURIComponent(id)}`, { method: "DELETE" }),
     getUsageStats: (period) => request(`/api/usage/stats?period=${encodeURIComponent(period)}`),
     listCombos: async () => {
       const body = await request("/api/combos");

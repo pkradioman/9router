@@ -61,6 +61,15 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       providers = providers.map((item) => (item.id === id ? { ...item, ...patch } : item));
       return { provider: providers.find((item) => item.id === id) };
     }),
+    createProvider: vi.fn(async (body) => {
+      const created = { id: `p${providers.length + 1}`, name: body.name || body.provider, provider: body.provider, authType: "apikey", isActive: true };
+      providers = [created, ...providers];
+      return { provider: created };
+    }),
+    deleteProvider: vi.fn(async (id) => {
+      providers = providers.filter((item) => item.id !== id);
+      return { success: true };
+    }),
     getUsageStats: vi.fn(async (period) => ({
       totalRequests: period === "7d" ? 42 : 7,
       totalPromptTokens: 1000,
@@ -241,6 +250,37 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     const paintedAfter = root.renderer.getPaintedText().join("\n");
     expect(paintedAfter).toContain("Work OpenAI");
     expect(paintedAfter).toContain("Disabled");
+  });
+
+  it("adds an API-key provider connection and deletes it", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    const typeInto = async (testId, keys) => {
+      const element = root.renderer.findByTestId(testId);
+      const bounds = root.renderer.getElementBounds(element.id);
+      root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      root.renderer.nativeSimulateKeystrokes(element.id, keys);
+      await settle(root);
+    };
+    await typeInto("provider-id-input", "o p e n a i");
+    await typeInto("provider-key-input", "s k - t e s t");
+    click(root.renderer, "provider-create");
+    await settle(root);
+
+    expect(api.createProvider).toHaveBeenCalledWith({ provider: "openai", apiKey: "sk-test", name: undefined });
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("openai");
+
+    click(root.renderer, "provider-delete-p1");
+    await settle(root);
+    expect(api.deleteProvider).toHaveBeenCalledWith("p1");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("No provider connections yet.");
   });
 
   it("shows usage totals and switches the period", async () => {
