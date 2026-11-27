@@ -175,6 +175,26 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(root.renderer.getPaintedText().join("\n")).not.toContain("server");
   });
 
+  it("restricts a key to an allow list", async () => {
+    const api = createFakeApi([
+      { id: "k1", name: "laptop", key: "sk-live-1", isActive: true, access: { restricted: false, allow: [] } },
+    ]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "key-access-k1");
+    await settle(root);
+    click(root.renderer, "key-restrict-k1");
+    await settle(root);
+    click(root.renderer, "key-access-save-k1");
+    await settle(root);
+
+    expect(api.updateKey).toHaveBeenCalledWith("k1", { access: { restricted: true, allow: [] } });
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Restricted");
+  });
+
   it("shows the gateway error inline when the key list fails", async () => {
     const api = createFakeApi();
     api.listKeys.mockRejectedValueOnce(new Error("Unauthorized"));

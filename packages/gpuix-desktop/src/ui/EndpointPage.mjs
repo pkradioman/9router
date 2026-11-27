@@ -39,57 +39,123 @@ function EndpointRow({ label, value, testId }) {
   );
 }
 
-function KeyRow({ item, onToggle, onDelete, busy }) {
+function KeyRow({ item, onToggle, onDelete, onAccess, busy }) {
+  const [editing, setEditing] = React.useState(false);
+  const [restricted, setRestricted] = React.useState(item.access?.restricted === true);
+  const [allow, setAllow] = React.useState((item.access?.allow || []).join(", "));
+
+  const saveAccess = () => {
+    const list = allow
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    onAccess(item, { restricted, allow: list });
+    setEditing(false);
+  };
+
   return h(
     "div",
     {
       testId: `key-row-${item.id}`,
       style: {
         display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
+        flexDirection: "column",
         paddingTop: 8,
         paddingBottom: 8,
         borderTopWidth: 1,
         borderColor: theme.border,
+        gap: 4,
       },
     },
     h(
       "div",
-      { style: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 2 } },
-      h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, item.name),
+      { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 2 } },
+        h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, item.name),
+        h(
+          "text",
+          { testId: `key-value-${item.id}`, style: { color: theme.muted, fontSize: 11 } },
+          String(item.key || "")
+        )
+      ),
       h(
         "text",
-        { testId: `key-value-${item.id}`, style: { color: theme.muted, fontSize: 11 } },
-        String(item.key || "")
+        {
+          testId: `key-access-${item.id}`,
+          role: "button",
+          onClick: () => (busy ? null : setEditing((value) => !value)),
+          style: {
+            color: item.access?.restricted ? theme.warn : theme.muted,
+            fontSize: 11,
+            cursor: busy ? "default" : "pointer",
+            hover: busy ? {} : { color: theme.text },
+          },
+        },
+        item.access?.restricted ? "Restricted" : "Unrestricted"
+      ),
+      h(
+        "text",
+        {
+          testId: `key-toggle-${item.id}`,
+          role: "button",
+          onClick: () => (busy ? null : onToggle(item)),
+          style: {
+            color: item.isActive === false ? theme.muted : theme.ok,
+            fontSize: 11,
+            cursor: busy ? "default" : "pointer",
+            hover: busy ? {} : { color: theme.text },
+          },
+        },
+        item.isActive === false ? "Disabled" : "Active"
+      ),
+      h(
+        "text",
+        {
+          testId: `key-delete-${item.id}`,
+          role: "button",
+          onClick: () => (busy ? null : onDelete(item)),
+          style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
+        },
+        "Delete"
       )
     ),
-    h(
-      "text",
-      {
-        testId: `key-toggle-${item.id}`,
-        role: "button",
-        onClick: () => (busy ? null : onToggle(item)),
-        style: {
-          color: item.isActive === false ? theme.muted : theme.ok,
-          fontSize: 11,
-          cursor: busy ? "default" : "pointer",
-          hover: busy ? {} : { color: theme.text },
-        },
-      },
-      item.isActive === false ? "Disabled" : "Active"
-    ),
-    h(
-      "text",
-      {
-        testId: `key-delete-${item.id}`,
-        role: "button",
-        onClick: () => (busy ? null : onDelete(item)),
-        style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
-      },
-      "Delete"
-    )
+    editing
+      ? h(
+          "div",
+          { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 } },
+          h(
+            "text",
+            {
+              testId: `key-restrict-${item.id}`,
+              role: "button",
+              onClick: () => setRestricted((value) => !value),
+              style: { color: restricted ? theme.warn : theme.muted, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+            },
+            restricted ? "Restricted: on" : "Restricted: off"
+          ),
+          h("input", {
+            testId: `key-allow-${item.id}`,
+            "aria-label": "Allowed models",
+            value: allow,
+            onChange: (event) => setAllow(event.value ?? ""),
+            onSubmit: saveAccess,
+            placeholder: "allowed model IDs, comma separated",
+            style: { width: 320, height: 28, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h(
+            "text",
+            {
+              testId: `key-access-save-${item.id}`,
+              role: "button",
+              onClick: saveAccess,
+              style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+            },
+            "Save access"
+          )
+        )
+      : null
   );
 }
 
@@ -143,6 +209,10 @@ export function EndpointPage({ api, status, onRefresh }) {
 
   const remove = (item) => {
     void guard(api.deleteKey(item.id).then(load));
+  };
+
+  const setAccess = (item, access) => {
+    void guard(api.updateKey(item.id, { access }).then(load));
   };
 
   return h(
@@ -228,12 +298,14 @@ export function EndpointPage({ api, status, onRefresh }) {
           : h(
               "div",
               { style: { display: "flex", flexDirection: "column" } },
-              keys.map((item) => h(KeyRow, { key: item.id, item, onToggle: toggle, onDelete: remove, busy }))
+              keys.map((item) =>
+                h(KeyRow, { key: item.id, item, onToggle: toggle, onDelete: remove, onAccess: setAccess, busy })
+              )
             ),
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Tunnel sharing and per-key access controls are not native yet."
+        "Tunnel sharing is not native yet. Access control restricts a key to the listed model IDs."
       )
     )
   );
