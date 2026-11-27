@@ -102,6 +102,21 @@ describe("createGatewayApi", () => {
     expect(calls[1].init.method).toBe("DELETE");
   });
 
+  it("reads and patches settings and fetches saver stats", async () => {
+    const { calls, fetchImpl } = fakeFetch((url, init) =>
+      init.method === "PATCH" ? json({ cavemanEnabled: true }) : json({ totalRequests: 1 })
+    );
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.getSettings();
+    await api.patchSettings({ cavemanEnabled: true });
+    await api.getTokenSaverStats("30d");
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/settings");
+    expect(calls[1].init.method).toBe("PATCH");
+    expect(calls[1].init.body).toBe('{"cavemanEnabled":true}');
+    expect(calls[2].url).toBe("http://127.0.0.1:20129/api/token-saver/stats?period=30d");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

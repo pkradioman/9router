@@ -38,6 +38,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = []) {
   let keys = initial.map((item) => ({ ...item }));
   let providers = providerSeed.map((item) => ({ ...item }));
   let combos = comboSeed.map((item) => ({ ...item }));
+  let fakeSettings = { cavemanEnabled: false, cavemanLevel: "full", rtkEnabled: true };
   let nextId = keys.length + 1;
   const api = {
     listKeys: vi.fn(async () => keys.map((item) => ({ ...item }))),
@@ -81,6 +82,15 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = []) {
     }),
     getConsoleLogs: vi.fn(async () => ["[INFO] gateway booted", "[ERROR] upstream refused"]),
     clearConsoleLogs: vi.fn(async () => ({ success: true })),
+    getSettings: vi.fn(async () => ({ ...fakeSettings })),
+    patchSettings: vi.fn(async (patch) => {
+      fakeSettings = { ...fakeSettings, ...patch };
+      return fakeSettings;
+    }),
+    getTokenSaverStats: vi.fn(async () => ({
+      rtk: { hitRequests: 3, bytesSaved: 1200 },
+      caveman: { onRequests: 5, offRequests: 1 },
+    })),
   };
   api.snapshot = () => keys;
   return api;
@@ -271,5 +281,33 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.clearConsoleLogs).toHaveBeenCalledOnce();
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).not.toContain("upstream refused");
+  });
+
+  it("shows saver savings and patches the switches", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-token-saver");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("RTK saved 1200 bytes across 3 requests");
+    expect(painted).toContain("Caveman on 5 requests, off 1");
+    expect(painted).toContain("Enabled");
+
+    click(root.renderer, "saver-caveman-toggle");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenCalledWith({ cavemanEnabled: true });
+
+    click(root.renderer, "saver-level-ultra");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({ cavemanLevel: "ultra" });
+
+    click(root.renderer, "saver-rtk-toggle");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({ rtkEnabled: false });
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Disabled");
   });
 });

@@ -62,5 +62,8 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       return (body && body.logs) || [];
     },
     clearConsoleLogs: () => request("/api/translator/console-logs", { method: "DELETE" }),
+    getSettings: () => request("/api/settings"),
+    patchSettings: (patch) => request("/api/settings", { method: "PATCH", body: patch }),
+    getTokenSaverStats: (period) => request(`/api/token-saver/stats?period=${encodeURIComponent(period)}`),
   };
 }
