@@ -1,6 +1,6 @@
 {
   "name": "@9router/gpuix-desktop",
-  "version": "0.2.20",
+  "version": "0.2.21",
   "private": true,
   "description": "Experimental native GPUIX shell for 9Router, supervised against an isolated bundled gateway runtime.",
   "type": "module",

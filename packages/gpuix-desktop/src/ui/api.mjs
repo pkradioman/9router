@@ -58,6 +58,8 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       return (body && body.nodes) || [];
     },
     createProviderNode: (node) => request("/api/provider-nodes", { method: "POST", body: node }),
+    updateProviderNode: (id, patch) =>
+      request(`/api/provider-nodes/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
     deleteProviderNode: (id) => request(`/api/provider-nodes/${encodeURIComponent(id)}`, { method: "DELETE" }),
     getModels: async () => {
       const body = await request("/api/models");

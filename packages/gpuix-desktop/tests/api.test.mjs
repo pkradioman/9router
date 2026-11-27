@@ -257,6 +257,16 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/tunnel/status");
   });
 
+  it("updates a provider node", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ node: { id: "n 1" } }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.updateProviderNode("n 1", { name: "Local", prefix: "loc" });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/provider-nodes/n%201");
+    expect(calls[0].init.method).toBe("PUT");
+    expect(JSON.parse(calls[0].init.body)).toEqual({ name: "Local", prefix: "loc" });
+  });
+
   it("posts a proxy pool test", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ ok: true, status: 200, elapsedMs: 42 }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

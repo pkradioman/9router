@@ -186,6 +186,122 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
   );
 }
 
+function NodeRow({ node, onDelete, onUpdate, busy }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draftName, setDraftName] = React.useState(node.name || "");
+  const [draftPrefix, setDraftPrefix] = React.useState(node.prefix || "");
+  const [draftUrl, setDraftUrl] = React.useState(node.baseUrl || "");
+
+  const start = () => {
+    setDraftName(node.name || "");
+    setDraftPrefix(node.prefix || "");
+    setDraftUrl(node.baseUrl || "");
+    setEditing(true);
+  };
+
+  const save = () => {
+    const name = draftName.trim();
+    const prefix = draftPrefix.trim();
+    const baseUrl = draftUrl.trim();
+    if (!name || !prefix || !baseUrl) return;
+    onUpdate(node, { name, prefix, baseUrl, apiType: node.apiType || "chat" });
+    setEditing(false);
+  };
+
+  return h(
+    "div",
+    {
+      testId: `node-row-${node.id}`,
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        paddingTop: 7,
+        paddingBottom: 7,
+        borderTopWidth: 1,
+        borderColor: theme.border,
+      },
+    },
+    h(
+      "div",
+      { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2 } },
+        h("text", { style: { color: theme.text, fontSize: 12 } }, node.name),
+        h(
+          "text",
+          { style: { color: theme.muted, fontSize: 10 } },
+          `${node.prefix} · ${node.baseUrl} · ${node.apiType || node.type}`
+        )
+      ),
+      h(
+        "text",
+        {
+          testId: `node-edit-${node.id}`,
+          role: "button",
+          onClick: () => (busy ? null : editing ? setEditing(false) : start()),
+          style: { color: theme.muted, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+        },
+        "Edit"
+      ),
+      h(
+        "text",
+        {
+          testId: `node-delete-${node.id}`,
+          role: "button",
+          onClick: () => (busy ? null : onDelete(node)),
+          style: {
+            color: theme.bad,
+            fontSize: 11,
+            cursor: busy ? "default" : "pointer",
+            hover: busy ? {} : { color: "#ff9c9c" },
+          },
+        },
+        "Delete"
+      )
+    ),
+    editing
+      ? h(
+          "div",
+          { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+          h("input", {
+            testId: `node-name-edit-${node.id}`,
+            "aria-label": "Node name",
+            value: draftName,
+            onChange: (event) => setDraftName(event.value ?? ""),
+            style: { width: 140, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h("input", {
+            testId: `node-prefix-edit-${node.id}`,
+            "aria-label": "Model prefix",
+            value: draftPrefix,
+            onChange: (event) => setDraftPrefix(event.value ?? ""),
+            style: { width: 110, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h("input", {
+            testId: `node-url-edit-${node.id}`,
+            "aria-label": "Base URL",
+            value: draftUrl,
+            onChange: (event) => setDraftUrl(event.value ?? ""),
+            onSubmit: save,
+            style: { width: 260, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h(
+            "text",
+            {
+              testId: `node-save-${node.id}`,
+              role: "button",
+              onClick: save,
+              style: { color: theme.ok, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
+            },
+            "Save"
+          )
+        )
+      : null
+  );
+}
+
 export function ProvidersPage({ api }) {
   const [providers, setProviders] = React.useState(null);
   const [error, setError] = React.useState("");
@@ -304,6 +420,16 @@ export function ProvidersPage({ api }) {
     setError("");
     api
       .deleteProviderNode(node.id)
+      .then(loadNodes)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
+  const updateNode = (node, patch) => {
+    setBusy(true);
+    setError("");
+    api
+      .updateProviderNode(node.id, patch)
       .then(loadNodes)
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
@@ -498,48 +624,7 @@ export function ProvidersPage({ api }) {
               "div",
               { style: { display: "flex", flexDirection: "column" } },
               nodes.map((node) =>
-                h(
-                  "div",
-                  {
-                    key: node.id,
-                    testId: `node-row-${node.id}`,
-                    style: {
-                      display: "flex",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      paddingTop: 7,
-                      paddingBottom: 7,
-                      borderTopWidth: 1,
-                      borderColor: theme.border,
-                    },
-                  },
-                  h(
-                    "div",
-                    { style: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2 } },
-                    h("text", { style: { color: theme.text, fontSize: 12 } }, node.name),
-                    h(
-                      "text",
-                      { style: { color: theme.muted, fontSize: 10 } },
-                      `${node.prefix} · ${node.baseUrl} · ${node.apiType || node.type}`
-                    )
-                  ),
-                  h(
-                    "text",
-                    {
-                      testId: `node-delete-${node.id}`,
-                      role: "button",
-                      onClick: () => (busy ? null : removeNode(node)),
-                      style: {
-                        color: theme.bad,
-                        fontSize: 11,
-                        cursor: busy ? "default" : "pointer",
-                        hover: busy ? {} : { color: "#ff9c9c" },
-                      },
-                    },
-                    "Delete"
-                  )
-                )
+                h(NodeRow, { key: node.id, node, onDelete: removeNode, onUpdate: updateNode, busy })
               )
             ),
       h(

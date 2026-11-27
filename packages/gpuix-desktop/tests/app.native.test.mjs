@@ -181,6 +181,10 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       nodes = nodes.filter((node) => node.id !== id);
       return { success: true };
     }),
+    updateProviderNode: vi.fn(async (id, patch) => {
+      nodes = nodes.map((node) => (node.id === id ? { ...node, ...patch } : node));
+      return { node: nodes.find((node) => node.id === id) };
+    }),
     getRequestDetails: vi.fn(async (page, pageSize) => ({
       details: [
         {
@@ -767,6 +771,18 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     const painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("Local");
     expect(painted).toContain("loc · http://127.0.0.1:8080/v1");
+
+    click(root.renderer, "node-edit-openai-compatible-chat-1");
+    await settle(root);
+    expect(root.renderer.findByTestId("node-prefix-edit-openai-compatible-chat-1")).toBeTruthy();
+    click(root.renderer, "node-save-openai-compatible-chat-1");
+    await settle(root);
+    expect(api.updateProviderNode).toHaveBeenCalledWith("openai-compatible-chat-1", {
+      name: "Local",
+      prefix: "loc",
+      baseUrl: "http://127.0.0.1:8080/v1",
+      apiType: "chat",
+    });
 
     click(root.renderer, "node-delete-openai-compatible-chat-1");
     await settle(root);

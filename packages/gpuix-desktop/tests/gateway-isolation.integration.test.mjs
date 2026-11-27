@@ -287,6 +287,22 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     ).toBe(200);
     expect((await call("/api/settings")).body.comboStrategies.gpuixprobe).toBeUndefined();
 
+    // Provider node edit: create a chat node, rename it through PUT, delete it.
+    const createdNode = await call("/api/provider-nodes", {
+      method: "POST",
+      body: JSON.stringify({ name: "gpuix-node", prefix: "gpuixn", baseUrl: "http://127.0.0.1:9/v1", apiType: "chat" }),
+    });
+    expect(createdNode.status).toBe(201);
+    const nodeId = createdNode.body.node.id;
+    const updatedNode = await call(`/api/provider-nodes/${encodeURIComponent(nodeId)}`, {
+      method: "PUT",
+      body: JSON.stringify({ name: "gpuix-node-2", prefix: "gpuixn2", baseUrl: "http://127.0.0.1:9/v1", apiType: "chat" }),
+    });
+    expect(updatedNode.status).toBe(200);
+    expect(updatedNode.body.node.name).toBe("gpuix-node-2");
+    expect(updatedNode.body.node.prefix).toBe("gpuixn2");
+    expect((await call(`/api/provider-nodes/${encodeURIComponent(nodeId)}`, { method: "DELETE" })).status).toBe(200);
+
     // Dashboard password: hashed by the gateway and written to the isolated DB.
     // This runs last because a fresh isolated DB has no prior password to restore;
     // the fixture directory is disposable.
