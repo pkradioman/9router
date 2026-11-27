@@ -17,6 +17,7 @@ import { CliToolsPage } from "./CliToolsPage.mjs";
 import { SkillsPage } from "./SkillsPage.mjs";
 import { ProfilePage } from "./ProfilePage.mjs";
 import { TranslatorPage } from "./TranslatorPage.mjs";
+import { RequestLogPage } from "./RequestLogPage.mjs";
 import { StatusPanel } from "./StatusPanel.mjs";
 
 const h = React.createElement;
@@ -27,6 +28,7 @@ const PAGES = [
   { id: "providers", label: "Providers", enabled: true },
   { id: "combos", label: "Combo & Vision Adapter", enabled: true },
   { id: "usage", label: "Usage", enabled: true },
+  { id: "request-log", label: "Request log", enabled: true },
   { id: "quota", label: "Quota Tracker", enabled: false },
   { id: "token-saver", label: "Token Saver", enabled: true },
   { id: "cli-tools", label: "CLI Tools", enabled: true },
@@ -115,6 +117,7 @@ export function App({ api, status, onRefresh }) {
   else if (page === "skills") content = h(SkillsPage);
   else if (page === "profile") content = h(ProfilePage, { api, status });
   else if (page === "translator") content = h(TranslatorPage, { api });
+  else if (page === "request-log") content = h(RequestLogPage, { api });
   else content = h(EndpointPage, { api, status, onRefresh });
 
   return h(

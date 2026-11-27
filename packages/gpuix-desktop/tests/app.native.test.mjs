@@ -140,6 +140,18 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       nodes = nodes.filter((node) => node.id !== id);
       return { success: true };
     }),
+    getRequestDetails: vi.fn(async (page, pageSize) => ({
+      details: [
+        {
+          id: `d${page}`,
+          model: page === 1 ? "gpt-4o" : "claude-sonnet",
+          provider: "openai",
+          status: 200,
+          timestamp: "2026-11-28T02:00:00.000Z",
+        },
+      ],
+      pagination: { page, pageSize, totalItems: 21, totalPages: 2, hasNext: page < 2, hasPrev: page > 1 },
+    })),
   };
   api.snapshot = () => keys;
   return api;
@@ -551,5 +563,30 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.getTranslatorFile).toHaveBeenLastCalledWith("5_res_provider.txt");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("5_res_provider.txt");
+  });
+
+  it("pages through the request log", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-request-log");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("gpt-4o");
+    expect(painted).toContain("page 1 / 2");
+    expect(api.getRequestDetails).toHaveBeenCalledWith(1, 20);
+
+    click(root.renderer, "request-log-next");
+    await settle(root);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(2, 20);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("claude-sonnet");
+    expect(painted).toContain("page 2 / 2");
+
+    click(root.renderer, "request-log-prev");
+    await settle(root);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(1, 20);
   });
 });

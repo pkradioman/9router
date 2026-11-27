@@ -182,6 +182,14 @@ describe("createGatewayApi", () => {
     expect(calls[2].init.method).toBe("DELETE");
   });
 
+  it("fetches paged request details", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ details: [], pagination: { page: 1 } }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.getRequestDetails(3, 10);
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/usage/request-details?page=3&pageSize=10");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
