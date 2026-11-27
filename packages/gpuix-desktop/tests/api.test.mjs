@@ -72,6 +72,24 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/usage/stats?period=7d");
   });
 
+  it("lists, creates and deletes combos", async () => {
+    const { calls, fetchImpl } = fakeFetch((url, init) =>
+      init.method === "DELETE"
+        ? json({ success: true })
+        : init.method === "POST"
+          ? json({ id: "c1", name: "fast" }, 201)
+          : json({ combos: [{ id: "c0", name: "old", models: [] }] })
+    );
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.listCombos()).toEqual([{ id: "c0", name: "old", models: [] }]);
+    await api.createCombo("fast");
+    await api.deleteCombo("c 1");
+    expect(calls[1].init.body).toBe('{"name":"fast"}');
+    expect(calls[2].url).toBe("http://127.0.0.1:20129/api/combos/c%201");
+    expect(calls[2].init.method).toBe("DELETE");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

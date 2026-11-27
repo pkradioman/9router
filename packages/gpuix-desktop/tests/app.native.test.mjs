@@ -34,9 +34,10 @@ function status(overrides = {}) {
   };
 }
 
-function createFakeApi(initial = [], providerSeed = []) {
+function createFakeApi(initial = [], providerSeed = [], comboSeed = []) {
   let keys = initial.map((item) => ({ ...item }));
   let providers = providerSeed.map((item) => ({ ...item }));
+  let combos = comboSeed.map((item) => ({ ...item }));
   let nextId = keys.length + 1;
   const api = {
     listKeys: vi.fn(async () => keys.map((item) => ({ ...item }))),
@@ -68,6 +69,16 @@ function createFakeApi(initial = [], providerSeed = []) {
         { timestamp: "2026-11-28T01:00:00Z", model: "gpt-4o", provider: "openai", promptTokens: 10, completionTokens: 5 },
       ],
     })),
+    listCombos: vi.fn(async () => combos.map((item) => ({ ...item }))),
+    createCombo: vi.fn(async (name) => {
+      const created = { id: `c${combos.length + 1}`, name, kind: null, models: [] };
+      combos = [created, ...combos];
+      return created;
+    }),
+    deleteCombo: vi.fn(async (id) => {
+      combos = combos.filter((item) => item.id !== id);
+      return { success: true };
+    }),
   };
   api.snapshot = () => keys;
   return api;
@@ -206,5 +217,35 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.getUsageStats).toHaveBeenLastCalledWith("24h");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("7");
+  });
+
+  it("lists, creates and deletes combos", async () => {
+    const api = createFakeApi([], [], [{ id: "c0", name: "fast-first", kind: null, models: [{}, {}] }]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-combos");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("fast-first");
+    expect(painted).toContain("2 models");
+
+    const input = root.renderer.findByTestId("combo-name-input");
+    const bounds = root.renderer.getElementBounds(input.id);
+    root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(input.id, "c h e a p");
+    await settle(root);
+    click(root.renderer, "combo-create");
+    await settle(root);
+    expect(api.createCombo).toHaveBeenCalledWith("cheap");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("cheap");
+
+    click(root.renderer, "combo-delete-c0");
+    await settle(root);
+    expect(api.deleteCombo).toHaveBeenCalledWith("c0");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).not.toContain("fast-first");
   });
 });
