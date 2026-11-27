@@ -12,6 +12,7 @@ import { UsagePage } from "./UsagePage.mjs";
 import { CombosPage } from "./CombosPage.mjs";
 import { ConsoleLogPage } from "./ConsoleLogPage.mjs";
 import { TokenSaverPage } from "./TokenSaverPage.mjs";
+import { ProxyPoolsPage } from "./ProxyPoolsPage.mjs";
 import { StatusPanel } from "./StatusPanel.mjs";
 
 const h = React.createElement;
@@ -27,7 +28,7 @@ const PAGES = [
   { id: "cli-tools", label: "CLI Tools", enabled: false },
   { id: "translator", label: "Translator", enabled: false },
   { id: "console-log", label: "Console Log", enabled: true },
-  { id: "proxy-pools", label: "Proxy Pools", enabled: false },
+  { id: "proxy-pools", label: "Proxy Pools", enabled: true },
   { id: "skills", label: "Skills", enabled: false },
 ];
 
@@ -104,6 +105,7 @@ export function App({ api, status, onRefresh }) {
   else if (page === "combos") content = h(CombosPage, { api });
   else if (page === "console-log") content = h(ConsoleLogPage, { api });
   else if (page === "token-saver") content = h(TokenSaverPage, { api });
+  else if (page === "proxy-pools") content = h(ProxyPoolsPage, { api });
   else content = h(EndpointPage, { api, status, onRefresh });
 
   return h(

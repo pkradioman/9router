@@ -117,6 +117,25 @@ describe("createGatewayApi", () => {
     expect(calls[2].url).toBe("http://127.0.0.1:20129/api/token-saver/stats?period=30d");
   });
 
+  it("manages proxy pools", async () => {
+    const { calls, fetchImpl } = fakeFetch((url, init) => {
+      if (init.method === "POST") return json({ proxyPool: { id: "p1" } }, 201);
+      if (init.method === "PUT") return json({ proxyPool: { id: "p1", isActive: false } });
+      if (init.method === "DELETE") return json({ success: true });
+      return json({ proxyPools: [{ id: "p1", name: "home" }] });
+    });
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.listProxyPools()).toEqual([{ id: "p1", name: "home" }]);
+    await api.createProxyPool({ name: "home", proxyUrl: "http://p:1", type: "http" });
+    await api.updateProxyPool("p1", { isActive: false });
+    await api.deleteProxyPool("p1");
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/proxy-pools");
+    expect(calls[1].init.method).toBe("POST");
+    expect(calls[2].url).toBe("http://127.0.0.1:20129/api/proxy-pools/p1");
+    expect(calls[3].init.method).toBe("DELETE");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

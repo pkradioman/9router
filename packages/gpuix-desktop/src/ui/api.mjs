@@ -65,5 +65,13 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     getSettings: () => request("/api/settings"),
     patchSettings: (patch) => request("/api/settings", { method: "PATCH", body: patch }),
     getTokenSaverStats: (period) => request(`/api/token-saver/stats?period=${encodeURIComponent(period)}`),
+    listProxyPools: async () => {
+      const body = await request("/api/proxy-pools");
+      return (body && body.proxyPools) || [];
+    },
+    createProxyPool: (pool) => request("/api/proxy-pools", { method: "POST", body: pool }),
+    updateProxyPool: (id, patch) =>
+      request(`/api/proxy-pools/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
+    deleteProxyPool: (id) => request(`/api/proxy-pools/${encodeURIComponent(id)}`, { method: "DELETE" }),
   };
 }

@@ -34,10 +34,11 @@ function status(overrides = {}) {
   };
 }
 
-function createFakeApi(initial = [], providerSeed = [], comboSeed = []) {
+function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed = []) {
   let keys = initial.map((item) => ({ ...item }));
   let providers = providerSeed.map((item) => ({ ...item }));
   let combos = comboSeed.map((item) => ({ ...item }));
+  let pools = poolSeed.map((item) => ({ ...item }));
   let fakeSettings = { cavemanEnabled: false, cavemanLevel: "full", rtkEnabled: true };
   let nextId = keys.length + 1;
   const api = {
@@ -91,6 +92,20 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = []) {
       rtk: { hitRequests: 3, bytesSaved: 1200 },
       caveman: { onRequests: 5, offRequests: 1 },
     })),
+    listProxyPools: vi.fn(async () => pools.map((item) => ({ ...item }))),
+    createProxyPool: vi.fn(async (pool) => {
+      const created = { id: `pp${pools.length + 1}`, isActive: true, type: "http", ...pool };
+      pools = [created, ...pools];
+      return { proxyPool: created };
+    }),
+    updateProxyPool: vi.fn(async (id, patch) => {
+      pools = pools.map((item) => (item.id === id ? { ...item, ...patch } : item));
+      return { proxyPool: pools.find((item) => item.id === id) };
+    }),
+    deleteProxyPool: vi.fn(async (id) => {
+      pools = pools.filter((item) => item.id !== id);
+      return { success: true };
+    }),
   };
   api.snapshot = () => keys;
   return api;
@@ -309,5 +324,32 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.patchSettings).toHaveBeenLastCalledWith({ rtkEnabled: false });
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("Disabled");
+  });
+
+  it("lists proxy pools, toggles and deletes one", async () => {
+    const api = createFakeApi([], [], [], [
+      { id: "pp1", name: "home", proxyUrl: "http://10.0.0.2:8080", type: "http", isActive: true },
+    ]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-proxy-pools");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("home");
+    expect(painted).toContain("http://10.0.0.2:8080");
+
+    click(root.renderer, "pool-toggle-pp1");
+    await settle(root);
+    expect(api.updateProxyPool).toHaveBeenCalledWith("pp1", { isActive: false });
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Disabled");
+
+    click(root.renderer, "pool-delete-pp1");
+    await settle(root);
+    expect(api.deleteProxyPool).toHaveBeenCalledWith("pp1");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("No proxy pools yet.");
   });
 });
