@@ -225,6 +225,17 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(Array.isArray(filtered.body.details)).toBe(true);
     expect(filtered.body.pagination.pageSize).toBe(5);
 
+    // Capacity adapter is a settings-only write; store, read back, restore.
+    const capSave = await call("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({
+        capacityAdapter: { vision: { enabled: false, roundRobin: false, models: ["openai/gpt-4o"] } },
+      }),
+    });
+    expect(capSave.status).toBe(200);
+    expect((await call("/api/settings")).body.capacityAdapter.vision.models).toEqual(["openai/gpt-4o"]);
+    expect((await call("/api/settings", { method: "PATCH", body: JSON.stringify({ capacityAdapter: {} }) })).status).toBe(200);
+
     // Combo presets preview is read-only and does not touch providers for the
     // "claude" source.
     const presets = await call("/api/combos/presets?source=claude");

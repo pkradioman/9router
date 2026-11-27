@@ -15,6 +15,29 @@ const STRATEGIES = [
   { value: "fusion", label: "Fusion" },
 ];
 
+// Capacity adapter: per input modality, an ordered pool the translator falls
+// back to when the chosen model cannot take that input. Settings-only.
+const CAPACITY_CAPS = [
+  { key: "vision", label: "Vision" },
+  { key: "pdf", label: "PDF" },
+  { key: "audioInput", label: "Audio" },
+  { key: "videoInput", label: "Video" },
+];
+
+function normalizeCapEntry(entry) {
+  if (Array.isArray(entry)) {
+    return { enabled: true, roundRobin: false, models: entry.map((item) => item?.model || item).filter(Boolean) };
+  }
+  if (entry && typeof entry === "object") {
+    return {
+      enabled: entry.enabled !== false,
+      roundRobin: entry.roundRobin === true,
+      models: Array.isArray(entry.models) ? entry.models.filter(Boolean) : [],
+    };
+  }
+  return { enabled: true, roundRobin: false, models: [] };
+}
+
 function ComboRow({ item, strategy, onDelete, onSave, onStrategy, busy }) {
   const models = Array.isArray(item.models) ? item.models : [];
   const current = strategy.fallbackStrategy || "fallback";
@@ -199,6 +222,8 @@ export function CombosPage({ api }) {
   const [combos, setCombos] = React.useState(null);
   const [strategies, setStrategies] = React.useState({});
   const [presets, setPresets] = React.useState(null);
+  const [capacity, setCapacity] = React.useState({});
+  const [capDraft, setCapDraft] = React.useState({});
   const [draftName, setDraftName] = React.useState("");
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -210,6 +235,10 @@ export function CombosPage({ api }) {
       .then(([list, settings]) => {
         setCombos(list);
         setStrategies((settings && settings.comboStrategies) || {});
+        const raw = (settings && settings.capacityAdapter) || {};
+        const normalized = {};
+        for (const cap of CAPACITY_CAPS) normalized[cap.key] = normalizeCapEntry(raw[cap.key]);
+        setCapacity(normalized);
       })
       .catch((err) => {
         setCombos([]);
@@ -288,6 +317,11 @@ export function CombosPage({ api }) {
         load();
       })
     );
+  };
+
+  const saveCapacity = (key, patch) => {
+    const next = { ...capacity, [key]: { ...(capacity[key] || normalizeCapEntry()), ...patch } };
+    void guard(api.patchSettings({ capacityAdapter: next }).then(load));
   };
 
   return h(
@@ -442,9 +476,101 @@ export function CombosPage({ api }) {
               )
             ),
       h(
+        "div",
+        {
+          testId: "combos-capacity",
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            paddingTop: 10,
+            borderTopWidth: 1,
+            borderColor: theme.border,
+          },
+        },
+        h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, "Capacity adapter"),
+        h(
+          "text",
+          { style: { color: theme.muted, fontSize: 10 } },
+          "Ordered fallback models the translator uses when the chosen model cannot take that input."
+        ),
+        ...CAPACITY_CAPS.map((cap) => {
+          const entry = capacity[cap.key] || normalizeCapEntry();
+          const chip = (testId, label, onClick, color) =>
+            h(
+              "text",
+              {
+                testId,
+                role: "button",
+                onClick: busy ? null : onClick,
+                style: { color: busy ? theme.muted : color, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+              },
+              label
+            );
+          return h(
+            "div",
+            { key: cap.key, testId: `cap-${cap.key}`, style: { display: "flex", flexDirection: "column", gap: 3 } },
+            h(
+              "div",
+              { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+              h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, cap.label),
+              chip(
+                `cap-${cap.key}-enabled`,
+                entry.enabled ? "Enabled" : "Disabled",
+                () => saveCapacity(cap.key, { enabled: entry.enabled !== true }),
+                entry.enabled ? theme.ok : theme.muted
+              ),
+              chip(
+                `cap-${cap.key}-rr`,
+                entry.roundRobin ? "Round robin" : "Ordered",
+                () => saveCapacity(cap.key, { roundRobin: entry.roundRobin !== true }),
+                entry.roundRobin ? theme.warn : theme.muted
+              )
+            ),
+            entry.models.map((model, index) =>
+              h(
+                "div",
+                { key: `${model}-${index}`, style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 } },
+                h("text", { style: { color: theme.muted, fontSize: 10, width: 18 } }, String(index + 1)),
+                h("text", { style: { color: theme.text, fontSize: 10, flexGrow: 1 } }, model),
+                chip(
+                  `cap-${cap.key}-remove-${index}`,
+                  "Remove",
+                  () => saveCapacity(cap.key, { models: entry.models.filter((_, at) => at !== index) }),
+                  theme.bad
+                )
+              )
+            ),
+            h(
+              "div",
+              { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8 } },
+              h("input", {
+                testId: `cap-${cap.key}-input`,
+                "aria-label": `${cap.label} fallback model`,
+                value: capDraft[cap.key] || "",
+                onChange: (event) =>
+                  setCapDraft((value) => ({ ...value, [cap.key]: event.value ?? "" })),
+                style: { width: 220, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+              }),
+              chip(
+                `cap-${cap.key}-add`,
+                "Add model",
+                () => {
+                  const model = (capDraft[cap.key] || "").trim();
+                  if (!model) return;
+                  saveCapacity(cap.key, { models: [...entry.models, model] });
+                  setCapDraft((value) => ({ ...value, [cap.key]: "" }));
+                },
+                theme.ok
+              )
+            )
+          );
+        })
+      ),
+      h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Cursor presets resolve its live catalog when a cursor connection is active. The vision/capacity adapter stays on the dashboard."
+        "Cursor presets resolve its live catalog when a cursor connection is active."
       )
     )
   );

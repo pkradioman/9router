@@ -663,6 +663,45 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).not.toContain("to create");
   });
 
+  it("edits the capacity adapter fallbacks", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-combos");
+    await settle(root);
+
+    const input = root.renderer.findByTestId("cap-vision-input");
+    const bounds = root.renderer.getElementBounds(input.id);
+    root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(input.id, "o p e n a i / g p t - 4 o");
+    await settle(root);
+    click(root.renderer, "cap-vision-add");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      capacityAdapter: expect.objectContaining({
+        vision: { enabled: true, roundRobin: false, models: ["openai/gpt-4o"] },
+      }),
+    });
+
+    click(root.renderer, "cap-vision-enabled");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      capacityAdapter: expect.objectContaining({
+        vision: { enabled: false, roundRobin: false, models: ["openai/gpt-4o"] },
+      }),
+    });
+
+    click(root.renderer, "cap-vision-remove-0");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      capacityAdapter: expect.objectContaining({
+        vision: { enabled: false, roundRobin: false, models: [] },
+      }),
+    });
+  });
+
   it("shows console log lines and clears them", async () => {
     const api = createFakeApi();
     api.getConsoleLogs
