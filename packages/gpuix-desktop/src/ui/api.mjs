@@ -59,6 +59,37 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     },
     createProviderNode: (node) => request("/api/provider-nodes", { method: "POST", body: node }),
     deleteProviderNode: (id) => request(`/api/provider-nodes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    getModels: async () => {
+      const body = await request("/api/models");
+      return (body && body.models) || [];
+    },
+    getDisabledModels: async () => {
+      const body = await request("/api/models/disabled");
+      return (body && body.disabled) || {};
+    },
+    disableModels: (providerAlias, ids) =>
+      request("/api/models/disabled", { method: "POST", body: { providerAlias, ids } }),
+    enableModel: (providerAlias, id) =>
+      request(
+        `/api/models/disabled?providerAlias=${encodeURIComponent(providerAlias)}&id=${encodeURIComponent(id)}`,
+        { method: "DELETE" }
+      ),
+    enableAllModels: (providerAlias) =>
+      request(`/api/models/disabled?providerAlias=${encodeURIComponent(providerAlias)}`, { method: "DELETE" }),
+    listCustomModels: async () => {
+      const body = await request("/api/models/custom");
+      return (body && body.models) || [];
+    },
+    addCustomModel: ({ providerAlias, id, type = "llm" }) =>
+      request("/api/models/custom", { method: "POST", body: { providerAlias, id, type } }),
+    deleteCustomModel: (providerAlias, id, type = "llm") =>
+      request(
+        `/api/models/custom?providerAlias=${encodeURIComponent(providerAlias)}&id=${encodeURIComponent(id)}&type=${type}`,
+        { method: "DELETE" }
+      ),
+    setModelAlias: (model, alias) => request("/api/models/alias", { method: "PUT", body: { model, alias } }),
+    deleteModelAlias: (alias) =>
+      request(`/api/models/alias?alias=${encodeURIComponent(alias)}`, { method: "DELETE" }),
     getUsageStats: (period) => request(`/api/usage/stats?period=${encodeURIComponent(period)}`),
     getUsageChart: (period) => request(`/api/usage/chart?period=${encodeURIComponent(period)}`),
     getRequestDetails: (page = 1, pageSize = 20) =>

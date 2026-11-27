@@ -207,6 +207,37 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/usage/chart?period=24h");
   });
 
+  it("manages models through the dashboard model routes", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ models: [] }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.getModels();
+    await api.getDisabledModels();
+    await api.disableModels("open ai", ["gpt-4o"]);
+    await api.enableModel("open ai", "g p t");
+    await api.enableAllModels("open ai");
+    await api.listCustomModels();
+    await api.addCustomModel({ providerAlias: "open ai", id: "my model", type: "llm" });
+    await api.deleteCustomModel("open ai", "my model");
+    await api.setModelAlias("open ai/gpt-4o", "fast");
+    await api.deleteModelAlias("fast");
+
+    expect(calls.map((call) => `${call.init.method} ${call.url.replace("http://127.0.0.1:20129", "")}`)).toEqual([
+      "GET /api/models",
+      "GET /api/models/disabled",
+      "POST /api/models/disabled",
+      "DELETE /api/models/disabled?providerAlias=open%20ai&id=g%20p%20t",
+      "DELETE /api/models/disabled?providerAlias=open%20ai",
+      "GET /api/models/custom",
+      "POST /api/models/custom",
+      "DELETE /api/models/custom?providerAlias=open%20ai&id=my%20model&type=llm",
+      "PUT /api/models/alias",
+      "DELETE /api/models/alias?alias=fast",
+    ]);
+    expect(JSON.parse(calls[2].init.body)).toEqual({ providerAlias: "open ai", ids: ["gpt-4o"] });
+    expect(JSON.parse(calls[6].init.body)).toEqual({ providerAlias: "open ai", id: "my model", type: "llm" });
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

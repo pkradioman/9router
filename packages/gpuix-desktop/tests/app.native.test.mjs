@@ -82,6 +82,21 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       if (id === "p2") return { valid: false, error: "invalid key" };
       return { valid: true, refreshed: false };
     }),
+    getModels: vi.fn(async () => [
+      { provider: "openai", model: "gpt-4o", name: "GPT-4o", fullModel: "openai/gpt-4o", routedModel: "openai/gpt-4o", alias: "gpt-4o", caps: { vision: true } },
+      { provider: "openai", model: "gpt-4o-mini", name: "GPT-4o mini", fullModel: "openai/gpt-4o-mini", routedModel: "openai/gpt-4o-mini", alias: "mini", caps: {} },
+      { provider: "openai", model: "my-model", name: "my-model", fullModel: "openai/my-model", routedModel: "openai/my-model", alias: "my-model", caps: {} },
+      { provider: "anthropic", model: "claude-sonnet", name: "Claude Sonnet", fullModel: "anthropic/claude-sonnet", routedModel: "anthropic/claude-sonnet", alias: "claude-sonnet", caps: { reasoning: true } },
+    ]),
+    getDisabledModels: vi.fn(async () => ({ openai: ["gpt-4o-mini"] })),
+    disableModels: vi.fn(async () => ({ success: true })),
+    enableModel: vi.fn(async () => ({ success: true })),
+    enableAllModels: vi.fn(async () => ({ success: true })),
+    listCustomModels: vi.fn(async () => [{ providerAlias: "openai", id: "my-model", kind: "llm" }]),
+    addCustomModel: vi.fn(async () => ({ success: true })),
+    deleteCustomModel: vi.fn(async () => ({ success: true })),
+    setModelAlias: vi.fn(async () => ({ success: true })),
+    deleteModelAlias: vi.fn(async () => ({ success: true })),
     getUsageStats: vi.fn(async (period) => ({
       totalRequests: period === "7d" ? 42 : 7,
       totalPromptTokens: 1000,
@@ -398,6 +413,44 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.getUsageChart).toHaveBeenLastCalledWith("24h");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("7");
+  });
+
+  it("lists routed models and toggles, enables all and deletes a custom model", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-models");
+    await settle(root);
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("openai · 3");
+    expect(painted).toContain("anthropic · 1");
+    expect(painted).toContain("gpt-4o-mini");
+    expect(painted).toContain("Disabled");
+    expect(painted).toContain("custom");
+    expect(api.getModels).toHaveBeenCalled();
+    expect(api.getDisabledModels).toHaveBeenCalled();
+
+    click(root.renderer, "model-toggle-openai/gpt-4o-mini");
+    await settle(root);
+    expect(api.enableModel).toHaveBeenCalledWith("openai", "gpt-4o-mini");
+
+    click(root.renderer, "model-toggle-anthropic/claude-sonnet");
+    await settle(root);
+    expect(api.disableModels).toHaveBeenCalledWith("anthropic", ["claude-sonnet"]);
+
+    click(root.renderer, "model-enable-all-openai");
+    await settle(root);
+    expect(api.enableAllModels).toHaveBeenCalledWith("openai");
+
+    click(root.renderer, "model-delete-openai/my-model");
+    await settle(root);
+    expect(api.deleteCustomModel).toHaveBeenCalledWith("openai", "my-model");
+
+    click(root.renderer, "model-alias-anthropic/claude-sonnet");
+    await settle(root);
+    expect(root.renderer.findByTestId("model-alias-input-anthropic/claude-sonnet")).toBeTruthy();
   });
 
   it("lists, creates and deletes combos", async () => {

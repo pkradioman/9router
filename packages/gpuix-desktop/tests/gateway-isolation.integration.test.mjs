@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { gatewayEnv, resolveIsolation, resolvePort } from "../src/config.mjs";
 import { GatewaySupervisor, resolveRuntimeDir } from "../src/gateway-supervisor.mjs";
 import { loadOrCreateSecrets } from "../src/secrets.mjs";
+import { readCliToken } from "../src/cli-token.mjs";
 import {
   checkAuthenticatedLanMockFlow,
   checkExperimentalRouteBlocks,
@@ -126,6 +127,62 @@ describe.runIf(canRun)("isolated gateway integration", () => {
       password: secrets.initialPassword,
     });
     expect(summarize(auth).failures).toEqual([]);
+
+    // Model management (the native Models page) round-trips on the CLI-token
+    // guarded routes, so every write below lands in the isolated DB.
+    const cliHeaders = { "x-9r-cli-token": readCliToken(isolation.dataDir) };
+    const call = async (route, init = {}) => {
+      const response = await fetch(`http://127.0.0.1:${port}${route}`, {
+        ...init,
+        headers: { ...cliHeaders, ...(init.body ? { "content-type": "application/json" } : {}) },
+        signal: AbortSignal.timeout(8000),
+      });
+      const text = await response.text();
+      let body = null;
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = null;
+      }
+      return { status: response.status, body };
+    };
+
+    const models = await call("/api/models");
+    expect(models.status).toBe(200);
+    expect(Array.isArray(models.body.models)).toBe(true);
+    expect(models.body.models.length).toBeGreaterThan(0);
+    expect(models.body.models[0].routedModel).toContain("/");
+
+    const disabled = await call("/api/models/disabled");
+    expect(disabled.status).toBe(200);
+    expect(disabled.body.disabled).toBeTruthy();
+
+    const disable = await call("/api/models/disabled", {
+      method: "POST",
+      body: JSON.stringify({ providerAlias: "openai", ids: ["gpt-4o"] }),
+    });
+    expect(disable.status).toBe(200);
+    const disabledAfter = await call("/api/models/disabled?providerAlias=openai");
+    expect(disabledAfter.body.ids).toContain("gpt-4o");
+    expect((await call("/api/models/disabled?providerAlias=openai&id=gpt-4o", { method: "DELETE" })).status).toBe(200);
+
+    const addCustom = await call("/api/models/custom", {
+      method: "POST",
+      body: JSON.stringify({ providerAlias: "openai", id: "gpuix-probe", type: "llm" }),
+    });
+    expect(addCustom.status).toBe(200);
+    const custom = await call("/api/models/custom");
+    expect(custom.body.models.some((m) => m.id === "gpuix-probe")).toBe(true);
+    expect(
+      (await call("/api/models/custom?providerAlias=openai&id=gpuix-probe&type=llm", { method: "DELETE" })).status
+    ).toBe(200);
+
+    const setAlias = await call("/api/models/alias", {
+      method: "PUT",
+      body: JSON.stringify({ model: "openai/gpt-4o", alias: "gpuix-alias" }),
+    });
+    expect(setAlias.status).toBe(200);
+    expect((await call("/api/models/alias?alias=gpuix-alias", { method: "DELETE" })).status).toBe(200);
 
     await supervisor.stop();
 

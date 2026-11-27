@@ -8,6 +8,7 @@ import { theme } from "./theme.mjs";
 import { STATUS } from "./status-model.mjs";
 import { EndpointPage } from "./EndpointPage.mjs";
 import { ProvidersPage } from "./ProvidersPage.mjs";
+import { ModelsPage } from "./ModelsPage.mjs";
 import { UsagePage } from "./UsagePage.mjs";
 import { CombosPage } from "./CombosPage.mjs";
 import { ConsoleLogPage } from "./ConsoleLogPage.mjs";
@@ -26,6 +27,7 @@ const PAGES = [
   { id: "endpoint", label: "Endpoint & Key", enabled: true },
   { id: "status", label: "Gateway status", enabled: true },
   { id: "providers", label: "Providers", enabled: true },
+  { id: "models", label: "Models", enabled: true },
   { id: "combos", label: "Combo & Vision Adapter", enabled: true },
   { id: "usage", label: "Usage", enabled: true },
   { id: "request-log", label: "Request log", enabled: true },
@@ -108,6 +110,7 @@ export function App({ api, status, onRefresh }) {
   let content;
   if (page === "status") content = h(StatusPanel, { status, onRefresh });
   else if (page === "providers") content = h(ProvidersPage, { api });
+  else if (page === "models") content = h(ModelsPage, { api });
   else if (page === "usage") content = h(UsagePage, { api });
   else if (page === "combos") content = h(CombosPage, { api });
   else if (page === "console-log") content = h(ConsoleLogPage, { api });

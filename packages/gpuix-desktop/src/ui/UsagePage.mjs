@@ -281,7 +281,7 @@ export function UsagePage({ api }) {
     h(
       "text",
       { style: { color: theme.muted, fontSize: 11 } },
-      "Charts, request details and live log streaming are not native yet."
+      "Recent requests live on the Request log page; live log streaming is not native yet."
     )
   );
 }
