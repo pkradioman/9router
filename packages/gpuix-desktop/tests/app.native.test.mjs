@@ -46,6 +46,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     rtkEnabled: true,
     requireLogin: true,
     requireApiKey: true,
+    comboStrategies: {},
     tunnelDashboardAccess: false,
     hasPassword: true,
   };
@@ -565,6 +566,47 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
       models: ["anthropic/claude", "openai/gpt-4o"],
     });
     expect(root.renderer.getPaintedText().join("\n")).toContain("2 models");
+  });
+
+  it("sets a combo strategy and its fusion judge", async () => {
+    const api = createFakeApi([], [], [{ id: "c1", name: "mix", kind: null, models: ["openai/gpt-4o"] }]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-combos");
+    await settle(root);
+    click(root.renderer, "combo-edit-c1");
+    await settle(root);
+
+    click(root.renderer, "combo-strategy-c1-round-robin");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      comboStrategies: { mix: { fallbackStrategy: "round-robin" } },
+    });
+    expect(root.renderer.getPaintedText().join("\n")).toContain("1 model · round-robin");
+
+    click(root.renderer, "combo-strategy-c1-fusion");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      comboStrategies: { mix: { fallbackStrategy: "fusion" } },
+    });
+
+    const judge = root.renderer.findByTestId("combo-judge-c1");
+    expect(judge).toBeTruthy();
+    const bounds = root.renderer.getElementBounds(judge.id);
+    root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(judge.id, "j u d g e");
+    await settle(root);
+    click(root.renderer, "combo-judge-save-c1");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      comboStrategies: { mix: { fallbackStrategy: "fusion", judgeModel: "judge" } },
+    });
+
+    click(root.renderer, "combo-strategy-c1-fallback");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({ comboStrategies: {} });
   });
 
   it("shows console log lines and clears them", async () => {

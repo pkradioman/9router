@@ -269,6 +269,24 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect((await call(`/api/providers/${encodeURIComponent(connectionId)}`, { method: "DELETE" })).status).toBe(200);
     expect((await call(`/api/proxy-pools/${encodeURIComponent(bindPoolId)}`, { method: "DELETE" })).status).toBe(200);
 
+    // Combo strategies live in settings.comboStrategies; write one entry and
+    // restore the original map afterwards.
+    const beforeStrategy = await call("/api/settings");
+    expect(beforeStrategy.status).toBe(200);
+    const strategies = { ...(beforeStrategy.body.comboStrategies || {}), gpuixprobe: { fallbackStrategy: "round-robin" } };
+    expect((await call("/api/settings", { method: "PATCH", body: JSON.stringify({ comboStrategies: strategies }) })).status).toBe(200);
+    const afterStrategy = await call("/api/settings");
+    expect(afterStrategy.body.comboStrategies.gpuixprobe.fallbackStrategy).toBe("round-robin");
+    expect(
+      (
+        await call("/api/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ comboStrategies: beforeStrategy.body.comboStrategies || {} }),
+        })
+      ).status
+    ).toBe(200);
+    expect((await call("/api/settings")).body.comboStrategies.gpuixprobe).toBeUndefined();
+
     await supervisor.stop();
 
     // 1. Gateway state landed in the isolated data dir and nowhere else.
