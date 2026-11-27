@@ -39,7 +39,14 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
   let providers = providerSeed.map((item) => ({ ...item }));
   let combos = comboSeed.map((item) => ({ ...item }));
   let pools = poolSeed.map((item) => ({ ...item }));
-  let fakeSettings = { cavemanEnabled: false, cavemanLevel: "full", rtkEnabled: true };
+  let fakeSettings = {
+    cavemanEnabled: false,
+    cavemanLevel: "full",
+    rtkEnabled: true,
+    requireLogin: true,
+    tunnelDashboardAccess: false,
+    hasPassword: true,
+  };
   let nextId = keys.length + 1;
   const api = {
     listKeys: vi.fn(async () => keys.map((item) => ({ ...item }))),
@@ -450,5 +457,29 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("9Router (Entry)");
     expect(painted).toContain("/v1/chat/completions");
     expect(painted).toContain("/skills/9router-web-fetch/SKILL.md");
+  });
+
+  it("shows profile settings and patches the safe toggles", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-profile");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Profile & settings");
+    expect(painted).toContain("Require dashboard login");
+    expect(painted).toContain("Password is set.");
+
+    click(root.renderer, "profile-require-login");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenCalledWith({ requireLogin: false });
+
+    click(root.renderer, "profile-tunnel-access");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({ tunnelDashboardAccess: true });
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Enabled");
   });
 });
