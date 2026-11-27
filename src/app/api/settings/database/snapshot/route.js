@@ -59,7 +59,8 @@ export async function GET(request) {
     const stat = await fsp.stat(file);
     if (!stat.size) throw new Error("Snapshot is empty");
 
-    const schemaVersion = getMetaSync(db, "schemaVersion", "");
+    const schemaVersion =
+      getMetaSync(db, "backupSchemaVersion", "") || getMetaSync(db, "schemaVersion", "");
     const stream = fs.createReadStream(file);
     const cleanup = () => {
       if (!dir) return;

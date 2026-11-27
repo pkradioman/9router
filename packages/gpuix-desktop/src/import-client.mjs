@@ -144,14 +144,26 @@ export function validateSnapshotFile(filePath) {
     if (missing.length) {
       throw new ImportError(`Snapshot is missing tables: ${missing.join(", ")}.`, { missing });
     }
-    const row = db.prepare("SELECT value FROM _meta WHERE key = 'schemaVersion'").get();
-    const schemaVersion = Number(row?.value);
-    if (schemaVersion !== EXPECTED_SCHEMA_VERSION) {
-      throw new ImportError(
-        `Snapshot schema version ${row?.value ?? "missing"} does not match the supported version ${EXPECTED_SCHEMA_VERSION}.`,
-        { schemaVersion: row?.value ?? null }
-      );
+    // `_meta.schemaVersion` is the migration number (1 today), while the app's
+    // compatibility constant SCHEMA_VERSION (2) is stored as
+    // `backupSchemaVersion`. Prefer the compatibility stamp; a DB written before
+    // that key existed is still accepted because the gateway runs additive
+    // migrations on open — what matters is that the schema family is readable.
+    const metaRow = (key) => db.prepare("SELECT value FROM _meta WHERE key = ?").get(key)?.value ?? null;
+    const migrationVersion = Number(metaRow("schemaVersion"));
+    const backupVersionRaw = metaRow("backupSchemaVersion");
+    const backupVersion = backupVersionRaw === null ? null : Number(backupVersionRaw);
+    if (backupVersion !== null) {
+      if (backupVersion !== EXPECTED_SCHEMA_VERSION) {
+        throw new ImportError(
+          `Snapshot schema version ${backupVersionRaw} does not match the supported version ${EXPECTED_SCHEMA_VERSION}.`,
+          { schemaVersion: backupVersionRaw }
+        );
+      }
+    } else if (!Number.isFinite(migrationVersion) || migrationVersion < 1) {
+      throw new ImportError("Snapshot has no usable schema version in _meta.");
     }
+    const schemaVersion = backupVersion ?? migrationVersion;
     const counts = {};
     for (const table of REQUIRED_TABLES) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS c FROM "${table}"`).get()?.c ?? 0);

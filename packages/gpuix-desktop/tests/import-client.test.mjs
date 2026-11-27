@@ -31,7 +31,7 @@ let server;
 let baseUrl;
 let hits;
 
-function buildSnapshotFile({ schemaVersion = 2, skipTable = null } = {}) {
+function buildSnapshotFile({ schemaVersion = 1, backupVersion = 2, skipTable = null } = {}) {
   const file = path.join(dir, `src-${Math.random().toString(16).slice(2)}.sqlite`);
   const db = new DatabaseSync(file);
   try {
@@ -40,7 +40,12 @@ function buildSnapshotFile({ schemaVersion = 2, skipTable = null } = {}) {
       if (table === "_meta") db.exec(`CREATE TABLE "_meta"(key TEXT PRIMARY KEY, value TEXT)`);
       else db.exec(`CREATE TABLE "${table}"(id INTEGER PRIMARY KEY, v TEXT)`);
     }
+    // Real shape: `schemaVersion` is the migration number, `backupSchemaVersion`
+    // is the app's compatibility constant (2).
     db.exec(`INSERT INTO _meta(key, value) VALUES ('schemaVersion', '${schemaVersion}')`);
+    if (backupVersion !== null) {
+      db.exec(`INSERT INTO _meta(key, value) VALUES ('backupSchemaVersion', '${backupVersion}')`);
+    }
     db.exec(`INSERT INTO settings(id, v) VALUES (1, '{"requireLogin":true}')`);
     db.exec(`INSERT INTO apiKeys(id, v) VALUES (1, 'sk-test')`);
   } finally {
@@ -183,12 +188,22 @@ describe("first-run import", () => {
   });
 
   it("rejects an unsupported schema version", async () => {
-    const bytes = buildSnapshotFile({ schemaVersion: 1 });
+    const bytes = buildSnapshotFile({ backupVersion: 3 });
     await startSource({ snapshot: { bytes } });
     const dataDir = path.join(dir, "data");
 
     await expect(runFirstImport({ dataDir, password: "pw", baseUrl })).rejects.toThrow(/schema version/);
     expect(fs.existsSync(isolatedDbPath(dataDir))).toBe(false);
+  });
+
+  it("accepts a database that predates backupSchemaVersion", async () => {
+    const bytes = buildSnapshotFile({ backupVersion: null });
+    await startSource({ snapshot: { bytes } });
+    const dataDir = path.join(dir, "data");
+
+    const result = await runFirstImport({ dataDir, password: "pw", baseUrl });
+    expect(result.status).toBe("imported");
+    expect(readImportState(dataDir).schemaVersion).toBe(1);
   });
 });
 
