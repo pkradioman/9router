@@ -49,6 +49,21 @@ describe("createGatewayApi", () => {
     expect(calls[0].init.headers["x-9r-cli-token"]).toBeUndefined();
   });
 
+  it("lists and updates provider connections", async () => {
+    const { calls, fetchImpl } = fakeFetch((url, init) =>
+      init.method === "PUT"
+        ? json({ provider: { id: "p1", isActive: false } })
+        : json({ connections: [{ id: "p1", name: "Work", isActive: true }] })
+    );
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", token: "tok", fetchImpl });
+
+    expect(await api.listProviders()).toEqual([{ id: "p1", name: "Work", isActive: true }]);
+    await api.updateProvider("p1", { isActive: false });
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/providers/p1");
+    expect(calls[1].init.body).toBe('{"isActive":false}');
+    expect(calls[1].init.headers["x-9r-cli-token"]).toBe("tok");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

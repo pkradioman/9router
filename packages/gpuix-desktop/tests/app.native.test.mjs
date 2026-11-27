@@ -34,8 +34,9 @@ function status(overrides = {}) {
   };
 }
 
-function createFakeApi(initial = []) {
+function createFakeApi(initial = [], providerSeed = []) {
   let keys = initial.map((item) => ({ ...item }));
+  let providers = providerSeed.map((item) => ({ ...item }));
   let nextId = keys.length + 1;
   const api = {
     listKeys: vi.fn(async () => keys.map((item) => ({ ...item }))),
@@ -51,6 +52,11 @@ function createFakeApi(initial = []) {
     deleteKey: vi.fn(async (id) => {
       keys = keys.filter((item) => item.id !== id);
       return {};
+    }),
+    listProviders: vi.fn(async () => providers.map((item) => ({ ...item }))),
+    updateProvider: vi.fn(async (id, patch) => {
+      providers = providers.map((item) => (item.id === id ? { ...item, ...patch } : item));
+      return { provider: providers.find((item) => item.id === id) };
     }),
   };
   api.snapshot = () => keys;
@@ -143,5 +149,29 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("9Router Experimental");
     expect(painted).toContain("Gateway healthy on port 20129");
     expect(painted).toContain("Refresh status");
+  });
+
+  it("lists provider connections and toggles one from the sidebar page", async () => {
+    const api = createFakeApi([], [
+      { id: "p1", name: "Work OpenAI", provider: "openai", authType: "apikey", isActive: true },
+      { id: "p2", name: "Claude", provider: "anthropic", authType: "oauth", isActive: false },
+    ]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Work OpenAI");
+    expect(painted).toContain("anthropic · oauth");
+    expect(painted).toContain("Disabled");
+
+    click(root.renderer, "provider-toggle-p1");
+    await settle(root);
+    expect(api.updateProvider).toHaveBeenCalledWith("p1", { isActive: false });
+    const paintedAfter = root.renderer.getPaintedText().join("\n");
+    expect(paintedAfter).toContain("Work OpenAI");
+    expect(paintedAfter).toContain("Disabled");
   });
 });

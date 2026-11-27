@@ -45,5 +45,10 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     createKey: (name) => request("/api/keys", { method: "POST", body: { name } }),
     updateKey: (id, patch) => request(`/api/keys/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
     deleteKey: (id) => request(`/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    listProviders: async () => {
+      const body = await request("/api/providers");
+      return (body && body.connections) || [];
+    },
+    updateProvider: (id, patch) => request(`/api/providers/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
   };
 }
