@@ -15,6 +15,7 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
   const [draftPriority, setDraftPriority] = React.useState(
     item.priority === undefined || item.priority === null ? "" : String(item.priority)
   );
+  const [draftProxy, setDraftProxy] = React.useState(item.providerSpecificData?.proxyPoolId || "");
 
   const save = () => {
     const patch = { name: draftName.trim() || item.name };
@@ -24,6 +25,7 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
       if (!Number.isFinite(value)) return;
       patch.priority = value;
     }
+    patch.proxyPoolId = draftProxy.trim() || null;
     onUpdate(item, patch);
     setEditing(false);
   };
@@ -62,7 +64,15 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
         h(
           "text",
           { style: { color: theme.muted, fontSize: 11 } },
-          [item.provider, item.authType, item.email, item.defaultModel].filter(Boolean).join(" · ")
+          [
+            item.provider,
+            item.authType,
+            item.email,
+            item.defaultModel,
+            item.providerSpecificData?.proxyPoolId ? `proxy ${item.providerSpecificData.proxyPoolId}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
         )
       ),
       h(
@@ -151,6 +161,15 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
             onChange: (event) => setDraftPriority(event.value ?? ""),
             onSubmit: save,
             style: { width: 70, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h("input", {
+            testId: `provider-proxy-edit-${item.id}`,
+            "aria-label": "Proxy pool ID",
+            value: draftProxy,
+            onChange: (event) => setDraftProxy(event.value ?? ""),
+            onSubmit: save,
+            placeholder: "proxy pool id (none)",
+            style: { width: 150, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
           }),
           h(
             "text",
@@ -405,7 +424,7 @@ export function ProvidersPage({ api }) {
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "API-key connections only, entered without masking (GPUIX has no masked field). OAuth, proxy pools per connection and model tests are not native yet."
+        "API-key connections only, entered without masking (GPUIX has no masked field). OAuth sign-in and per-model tests are not native yet."
       )
     ),
     nodesOpen ? h(

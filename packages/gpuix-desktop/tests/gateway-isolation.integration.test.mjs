@@ -240,6 +240,35 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(updatedPool.body.proxyPool.strictProxy).toBe(true);
     expect((await call(`/api/proxy-pools/${encodeURIComponent(poolId)}`, { method: "DELETE" })).status).toBe(200);
 
+    // Connection-level proxy binding: create a synthetic key connection, bind it
+    // to a probe pool, unbind, then remove both. No provider traffic happens.
+    const bindPool = await call("/api/proxy-pools", {
+      method: "POST",
+      body: JSON.stringify({ name: "gpuix-bind", proxyUrl: "http://127.0.0.1:9" }),
+    });
+    expect(bindPool.status).toBe(201);
+    const bindPoolId = bindPool.body.proxyPool.id;
+    const newConnection = await call("/api/providers", {
+      method: "POST",
+      body: JSON.stringify({ provider: "openai", apiKey: "sk-gpuix-probe", name: "gpuix-probe" }),
+    });
+    expect(newConnection.status).toBe(201);
+    const connectionId = newConnection.body.connection.id;
+    const bound = await call(`/api/providers/${encodeURIComponent(connectionId)}`, {
+      method: "PUT",
+      body: JSON.stringify({ proxyPoolId: bindPoolId }),
+    });
+    expect(bound.status).toBe(200);
+    expect(bound.body.connection.providerSpecificData.proxyPoolId).toBe(bindPoolId);
+    const unbound = await call(`/api/providers/${encodeURIComponent(connectionId)}`, {
+      method: "PUT",
+      body: JSON.stringify({ proxyPoolId: null }),
+    });
+    expect(unbound.status).toBe(200);
+    expect(unbound.body.connection.providerSpecificData?.proxyPoolId).toBeUndefined();
+    expect((await call(`/api/providers/${encodeURIComponent(connectionId)}`, { method: "DELETE" })).status).toBe(200);
+    expect((await call(`/api/proxy-pools/${encodeURIComponent(bindPoolId)}`, { method: "DELETE" })).status).toBe(200);
+
     await supervisor.stop();
 
     // 1. Gateway state landed in the isolated data dir and nowhere else.
