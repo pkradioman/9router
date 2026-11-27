@@ -17,6 +17,7 @@ import { checkExperimentalRouteBlocks, summarize } from "./security-check.mjs";
 import { askForPort } from "./port-prompt.mjs";
 import { acquireSingleInstance } from "./single-instance.mjs";
 import { runFirstImport, DEFAULT_SOURCE_URL } from "./import-client.mjs";
+import { activateIfAlive } from "./window-lifecycle.mjs";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -304,7 +305,9 @@ async function showWindow(status) {
     const { renderer } = useGpuix();
     React.useEffect(() => {
       if (!renderer) return;
-      activate = () => renderer.activateWindow();
+      activate = () => {
+        if (activateIfAlive(renderer) === "terminated") process.exit(0);
+      };
       if (pendingActivation) {
         pendingActivation = false;
         activate();
