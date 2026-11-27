@@ -156,6 +156,13 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       pools = pools.filter((item) => item.id !== id);
       return { success: true };
     }),
+    testProxyPool: vi.fn(async (id) => ({
+      ok: id !== "pp2",
+      status: id === "pp2" ? 502 : 200,
+      error: id === "pp2" ? "connect ECONNREFUSED" : null,
+      elapsedMs: 42,
+      testedAt: "2026-11-28T02:00:00.000Z",
+    })),
     getCliToolStatuses: vi.fn(async () => ({
       claude: { installed: true, has9Router: true },
       codex: { installed: true, has9Router: false },
@@ -618,6 +625,38 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.deleteProxyPool).toHaveBeenCalledWith("pp1");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("No proxy pools yet.");
+  });
+
+  it("tests, edits and toggles strict mode on a proxy pool", async () => {
+    const api = createFakeApi([], [], [], [
+      { id: "pp1", name: "home", proxyUrl: "http://10.0.0.2:8080", type: "http", isActive: true },
+    ]);
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-proxy-pools");
+    await settle(root);
+
+    click(root.renderer, "pool-test-pp1");
+    await settle(root);
+    expect(api.testProxyPool).toHaveBeenCalledWith("pp1");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("OK 200 42ms");
+
+    click(root.renderer, "pool-edit-pp1");
+    await settle(root);
+    expect(root.renderer.findByTestId("pool-url-edit-pp1")).toBeTruthy();
+
+    click(root.renderer, "pool-strict-pp1");
+    await settle(root);
+    expect(api.updateProxyPool).toHaveBeenLastCalledWith("pp1", { strictProxy: true });
+
+    click(root.renderer, "pool-save-pp1");
+    await settle(root);
+    expect(api.updateProxyPool).toHaveBeenLastCalledWith("pp1", {
+      name: "home",
+      proxyUrl: "http://10.0.0.2:8080",
+    });
   });
 
   it("shows CLI tool connection status", async () => {

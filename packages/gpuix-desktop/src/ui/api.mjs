@@ -123,6 +123,7 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     updateProxyPool: (id, patch) =>
       request(`/api/proxy-pools/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
     deleteProxyPool: (id) => request(`/api/proxy-pools/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    testProxyPool: (id) => request(`/api/proxy-pools/${encodeURIComponent(id)}/test`, { method: "POST" }),
     getCliToolStatuses: () => request("/api/cli-tools/all-statuses"),
     getTranslatorFile: async (file) => {
       const body = await request(`/api/translator/load?file=${encodeURIComponent(file)}`);

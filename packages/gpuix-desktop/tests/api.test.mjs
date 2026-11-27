@@ -257,6 +257,15 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/tunnel/status");
   });
 
+  it("posts a proxy pool test", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ ok: true, status: 200, elapsedMs: 42 }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.testProxyPool("pp 1")).toEqual({ ok: true, status: 200, elapsedMs: 42 });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/proxy-pools/pp%201/test");
+    expect(calls[0].init.method).toBe("POST");
+  });
+
   it("updates a combo by id", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ id: "c 1", name: "mix", models: [] }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

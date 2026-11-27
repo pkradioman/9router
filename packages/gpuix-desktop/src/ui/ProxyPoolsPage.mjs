@@ -1,22 +1,74 @@
-// Native Proxy Pools page: list, add (name + URL), enable/disable, delete.
+// Native Proxy Pools page: list, add (name + URL), edit (name, URL, strict
+// mode), test, enable/disable and delete.
 //
-// Pool types beyond plain HTTP proxies, strict mode and connection bindings are
-// not native yet and stay pending.
+// Relay deployments (Vercel/Cloudflare/Deno/Netlify) and per-connection bindings
+// are not native yet and stay pending.
 import React from "react";
 import { theme } from "./theme.mjs";
 
 const h = React.createElement;
 
-function PoolRow({ item, onToggle, onDelete, busy }) {
+function PoolRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
+  const [editing, setEditing] = React.useState(false);
+  const [testState, setTestState] = React.useState({ phase: "idle", message: "" });
+  const [draftName, setDraftName] = React.useState(item.name || "");
+  const [draftUrl, setDraftUrl] = React.useState(item.proxyUrl || "");
+
+  const start = () => {
+    setDraftName(item.name || "");
+    setDraftUrl(item.proxyUrl || "");
+    setEditing(true);
+  };
+
+  const save = () => {
+    const name = draftName.trim();
+    const proxyUrl = draftUrl.trim();
+    if (!name || !proxyUrl) return;
+    onUpdate(item, { name, proxyUrl });
+    setEditing(false);
+  };
+
+  const runTest = () => {
+    setTestState({ phase: "running", message: "" });
+    onTest(item)
+      .then((result) => {
+        if (result && result.ok) {
+          setTestState({ phase: "ok", message: `OK ${result.status || ""} ${result.elapsedMs || 0}ms`.trim() });
+        } else {
+          setTestState({
+            phase: "fail",
+            message: `Failed: ${(result && (result.error || result.status)) || "no details"}`,
+          });
+        }
+      })
+      .catch((err) => setTestState({ phase: "fail", message: `Failed: ${err.message}` }));
+  };
+
+  const action = (testId, label, onClick, color) =>
+    h(
+      "text",
+      {
+        testId,
+        role: "button",
+        onClick: busy ? null : onClick,
+        style: {
+          color: busy ? theme.muted : color || theme.muted,
+          fontSize: 10,
+          cursor: busy ? "default" : "pointer",
+          hover: busy ? {} : { color: theme.text },
+        },
+      },
+      label
+    );
+
   return h(
     "div",
     {
       testId: `pool-row-${item.id}`,
       style: {
         display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
+        flexDirection: "column",
+        gap: 4,
         paddingTop: 8,
         paddingBottom: 8,
         borderTopWidth: 1,
@@ -25,35 +77,97 @@ function PoolRow({ item, onToggle, onDelete, busy }) {
     },
     h(
       "div",
-      { style: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 2 } },
-      h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, item.name),
-      h("text", { style: { color: theme.muted, fontSize: 11 } }, `${item.type || "http"} · ${item.proxyUrl}`)
-    ),
-    h(
-      "text",
-      {
-        testId: `pool-toggle-${item.id}`,
-        role: "button",
-        onClick: () => (busy ? null : onToggle(item)),
-        style: {
-          color: item.isActive === false ? theme.muted : theme.ok,
-          fontSize: 11,
-          cursor: busy ? "default" : "pointer",
-          hover: busy ? {} : { color: theme.text },
+      { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 2 } },
+        h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, item.name),
+        h(
+          "text",
+          { style: { color: theme.muted, fontSize: 11 } },
+          `${item.type || "http"}${item.strictProxy ? " · strict" : ""} · ${item.proxyUrl}`
+        )
+      ),
+      action(
+        `pool-test-${item.id}`,
+        testState.phase === "running" ? "Testing..." : "Test",
+        runTest,
+        testState.phase === "ok" ? theme.ok : testState.phase === "fail" ? theme.bad : theme.muted
+      ),
+      action(`pool-edit-${item.id}`, "Edit", () => (editing ? setEditing(false) : start())),
+      h(
+        "text",
+        {
+          testId: `pool-toggle-${item.id}`,
+          role: "button",
+          onClick: () => (busy ? null : onToggle(item)),
+          style: {
+            color: item.isActive === false ? theme.muted : theme.ok,
+            fontSize: 11,
+            cursor: busy ? "default" : "pointer",
+            hover: busy ? {} : { color: theme.text },
+          },
         },
-      },
-      item.isActive === false ? "Disabled" : "Active"
+        item.isActive === false ? "Disabled" : "Active"
+      ),
+      h(
+        "text",
+        {
+          testId: `pool-delete-${item.id}`,
+          role: "button",
+          onClick: () => (busy ? null : onDelete(item)),
+          style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
+        },
+        "Delete"
+      )
     ),
-    h(
-      "text",
-      {
-        testId: `pool-delete-${item.id}`,
-        role: "button",
-        onClick: () => (busy ? null : onDelete(item)),
-        style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
-      },
-      "Delete"
-    )
+    testState.phase === "ok" || testState.phase === "fail"
+      ? h(
+          "text",
+          {
+            testId: `pool-test-result-${item.id}`,
+            style: { color: testState.phase === "ok" ? theme.ok : theme.bad, fontSize: 10 },
+          },
+          testState.message
+        )
+      : null,
+    editing
+      ? h(
+          "div",
+          { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+          h("input", {
+            testId: `pool-name-edit-${item.id}`,
+            "aria-label": "Pool name",
+            value: draftName,
+            onChange: (event) => setDraftName(event.value ?? ""),
+            style: { width: 150, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h("input", {
+            testId: `pool-url-edit-${item.id}`,
+            "aria-label": "Proxy URL",
+            value: draftUrl,
+            onChange: (event) => setDraftUrl(event.value ?? ""),
+            onSubmit: save,
+            style: { width: 280, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+          }),
+          h(
+            "text",
+            {
+              testId: `pool-strict-${item.id}`,
+              role: "button",
+              onClick: busy ? null : () => onUpdate(item, { strictProxy: item.strictProxy !== true }),
+              style: {
+                color: item.strictProxy ? theme.warn : theme.muted,
+                fontSize: 10,
+                cursor: busy ? "default" : "pointer",
+                hover: busy ? {} : { color: theme.text },
+              },
+            },
+            item.strictProxy ? "Strict: on" : "Strict: off"
+          ),
+          action(`pool-save-${item.id}`, "Save", save, theme.ok)
+        )
+      : null
   );
 }
 
@@ -109,6 +223,12 @@ export function ProxyPoolsPage({ api }) {
   const remove = (item) => {
     void guard(api.deleteProxyPool(item.id).then(load));
   };
+
+  const update = (item, patch) => {
+    void guard(api.updateProxyPool(item.id, patch).then(load));
+  };
+
+  const test = (item) => api.testProxyPool(item.id);
 
   const input = (props) =>
     h("input", {
@@ -192,9 +312,23 @@ export function ProxyPoolsPage({ api }) {
           : h(
               "div",
               { style: { display: "flex", flexDirection: "column" } },
-              pools.map((item) => h(PoolRow, { key: item.id, item, onToggle: toggle, onDelete: remove, busy }))
+              pools.map((item) =>
+                h(PoolRow, {
+                  key: item.id,
+                  item,
+                  onToggle: toggle,
+                  onDelete: remove,
+                  onUpdate: update,
+                  onTest: test,
+                  busy,
+                })
+              )
             ),
-      h("text", { style: { color: theme.muted, fontSize: 11 } }, "Named proxy types, strict mode and bindings are not native yet.")
+      h(
+        "text",
+        { style: { color: theme.muted, fontSize: 11 } },
+        "Relay deployments and per-connection bindings are not native yet."
+      )
     )
   );
 }

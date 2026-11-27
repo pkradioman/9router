@@ -223,6 +223,23 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(Array.isArray(filtered.body.details)).toBe(true);
     expect(filtered.body.pagination.pageSize).toBe(5);
 
+    // Proxy pools: create, edit name + strict mode, delete. The connection
+    // target is loopback-only on a closed port; this probe never dials out.
+    const createdPool = await call("/api/proxy-pools", {
+      method: "POST",
+      body: JSON.stringify({ name: "gpuix-probe", proxyUrl: "http://127.0.0.1:9", type: "http" }),
+    });
+    expect(createdPool.status).toBe(201);
+    const poolId = createdPool.body.proxyPool.id;
+    const updatedPool = await call(`/api/proxy-pools/${encodeURIComponent(poolId)}`, {
+      method: "PUT",
+      body: JSON.stringify({ name: "gpuix-probe-2", strictProxy: true }),
+    });
+    expect(updatedPool.status).toBe(200);
+    expect(updatedPool.body.proxyPool.name).toBe("gpuix-probe-2");
+    expect(updatedPool.body.proxyPool.strictProxy).toBe(true);
+    expect((await call(`/api/proxy-pools/${encodeURIComponent(poolId)}`, { method: "DELETE" })).status).toBe(200);
+
     await supervisor.stop();
 
     // 1. Gateway state landed in the isolated data dir and nowhere else.
