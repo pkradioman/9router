@@ -4,7 +4,7 @@ Fork workflow for `pkradioman/9router`. Read `CLAUDE.md` first for architecture 
 `open-sse/AGENTS.md` before touching the router engine. This file covers what is
 specific to this fork, how it is built, and how upstream is merged.
 
-Last updated: 2026-11-25
+Last updated: 2026-11-28
 
 ## Local copy
 
@@ -54,15 +54,17 @@ git checkout fork/main && git merge --no-ff upstream/master
 - Tag every installed build `fork-v<version>`. Rollback = checkout tag → rebuild → install.
 - `electron-builder` artifacts: `dist-electron/9Router-<version>-setup.exe`, `-portable.exe`.
 
-## Build → install (end of every task)
+## Build → staging → install
 
-**Done means installed and running.** No feature/fix task is complete until the new build is
-packaged, installed, launched, and verified against the checklist below.
+**Done means verified on staging and installed after the owner's confirmation.** No
+feature/fix task is complete until the build has run on staging, every staging check passed,
+and the owner approved the production install.
 
-- Mid-task builds are pre-approved: build on the sandbox whenever you need to verify
-  something, without asking.
-- The closing install/launch replaces the running app automatically. Announce it, don't wait
-  for approval — the one exception is clients actively connected (see Rules).
+- Builds are pre-approved: build on the sandbox whenever you need to verify something,
+  without asking. Production is never restarted, installed, or terminated during
+  development — verify on staging instead.
+- The production install happens only after the owner confirms the staging build; announce
+  the restart at that point.
 - Each task gets its own version bump, so every review build has a distinct
   `fork-v<version>` tag and `/api/version` matches what is on screen.
 
@@ -104,20 +106,59 @@ dist-electron\9Router-<version>-setup.exe /S
 Rules:
 - Never edit `%LOCALAPPDATA%\Programs\9Router` or its `app.asar`/runtime. Fix the repo,
   rebuild, reinstall.
-- The closing install/launch replaces the running app on its own. Announce the restart
-  instead of asking; skip it only while clients are actively connected, and finish the
-  install as soon as they are idle.
+- Production has live clients: never install, restart, or terminate it while developing.
+  Every build is exercised on the staging instance first, and the production install waits
+  for the owner's explicit go-ahead (see Staging → production).
 - `desktop-app/` and `desktop-dist/` are build outputs; never commit them.
+
+## Staging → production
+
+| | Production | Staging |
+|---|---|---|
+| Bind | `0.0.0.0:20128` (Electron tray app) | `127.0.0.1:20129` (`node custom-server.js`) |
+| Data | `%APPDATA%\9router` | `%APPDATA%\9router-staging` |
+| Build | installed `resources\app\runtime` | extracted `desktop-app/runtime` from `desktop-app.tgz` |
+
+Seed or refresh staging data (consistent snapshot; safe while production runs):
+
+```bash
+node -e "const {DatabaseSync}=require('node:sqlite'),p=require('path');const s=p.join(process.env.APPDATA,'9router','db','data.sqlite'),d=p.join(process.env.APPDATA,'9router-staging','db','data.sqlite').split(p.sep).join('/');const db=new DatabaseSync(s);db.exec(\`VACUUM INTO '\${d}'\`);db.close()"
+```
+
+Start / stop staging (from the extracted build, after `npm run desktop:pack:win` or straight
+after unpacking `desktop-app.tgz`):
+
+```bash
+cd desktop-app/runtime
+PORT=20129 HOSTNAME=127.0.0.1 DATA_DIR="$APPDATA\\9router-staging" \
+  nohup node custom-server.js > "$APPDATA/9router-staging/staging.log" 2>&1 &
+# stop: kill that node PID (netstat -ano | findstr :20129)
+```
+
+The staging checks before asking for the production install:
+
+- unit tests for the change (plus the `tests/` subset touched by the change)
+- `/api/health` and `/api/version` on 20129
+- the changed feature exercised end-to-end on staging (dashboard on 20129, or the local CLI
+  token header `x-9r-cli-token` derived from `%APPDATA%\9router-staging`)
+- one real routed request writes a `usageHistory` row with cost
+- all staging writes stay inside `%APPDATA%\9router-staging` (production DB untouched)
+
+Promotion: report the staging evidence, wait for the owner's confirmation, then install
+production (announce the restart), tag `fork-v<version>`, and update Current state. Rollback
+is still the previous `fork-v<version>` tag + rebuild + install.
 
 ## Definition of done
 
 A task is finished only when all of these are true:
 
 - [ ] source change committed and pushed to `origin/fork/main`
-- [ ] version bumped and `fork-v<version>` tagged + pushed
 - [ ] sandbox build succeeded and the sha256 of `desktop-app.tgz` was verified after copy
+- [ ] staging instance (20129, separate data dir) passed every check above
+- [ ] owner confirmed the promotion
 - [ ] `dist-electron/9Router-<version>-setup.exe` installed
 - [ ] app relaunched and every row of the verification table below passes
+- [ ] version tagged `fork-v<version>` + pushed
 - [ ] `AGENTS.md` → Current state reflects the new version and what is still pending
 
 ## Verification after an install
@@ -211,8 +252,19 @@ Conventional Commits, one concern per commit. Fork commits should name the area
 
 ## Current state
 
-- Source version **0.5.126**, branch `fork/main`, upstream merged at `5ae63d22` (v0.5.123).
-- Windows remains on **0.5.125**, tagged `fork-v0.5.125`; data dir `%APPDATA%\9router`.
+- Source version **0.5.128**, branch `fork/main`, upstream merged at `5ae63d22` (v0.5.123).
+- Windows production runs **0.5.128** (installed 2026-11-28, tagged `fork-v0.5.128`); data dir
+  `%APPDATA%\9router`. Staging runs the same build on `127.0.0.1:20129` with
+  `%APPDATA%\9router-staging`.
+- Cloudflare: `cloudflare-ai` honours `providerSpecificData.gatewayId` (AI Gateway
+  `/compat/chat/completions` + `cf-aig-authorization`); the production connection `k-0` uses
+  `gatewayId=proxy`, so `custom-token-router/...` custom-provider models route. Test/validate
+  probe an enabled model (custom first in gateway mode, else enabled built-in chat model,
+  else `@cf/openai/gpt-oss-20b`) instead of clef-flash.
+- Staging evidence (2026-11-28): Test → valid; validate with gateway psd → valid; real chat
+  through `custom-token-router/deepseek/...` → 200 and `usageHistory` rows with cost.
+  Observed once: the first request against a freshly seeded staging DB wrote no usage row;
+  not reproduced on the next stream/non-stream requests.
 - Ubuntu x64 AppImage **0.5.126** installed per-user on `ubuntu-dell`; its launcher uses
   `~/.local/share/9router-linux-desktop` to avoid the machine's existing `~/.9router` data.
   Login and dashboard navigation passed on an isolated X11 display; tray interaction and
@@ -221,3 +273,6 @@ Conventional Commits, one concern per commit. Fork commits should name the area
   (~402 KB prompt bytes removed).
 - Pending, not started: caveman OFF cohort needs a comparable window before the Token Saver
   comparison is meaningful; RTK effectiveness should be read after ~1–2 weeks of traffic.
+- Pending: production traffic through the Cloudflare gateway should be confirmed from real
+  client requests; the registry still lists deprecated CF ids (`kimi-k2.5` → `kimi-k2.6`,
+  `llama-3.1-8b-instruct-awq` returns 410).
