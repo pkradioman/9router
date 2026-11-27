@@ -11,8 +11,10 @@ import { gatewayEnv, resolveIsolation, resolvePort, IsolationError, PortConflict
 import { loadOrCreateSecrets } from "./secrets.mjs";
 import { GatewaySupervisor, resolveRuntimeDir } from "./gateway-supervisor.mjs";
 import { initialStatus, refreshStatus } from "./ui/status-model.mjs";
-import { checkExperimentalRouteBlocks, summarize } from "./security-check.mjs";
 import { TrayController } from "./tray-controller.mjs";
+import { assertRuntimeGuard } from "./runtime-guard.mjs";
+import { askForPort } from "./port-prompt.mjs";
+import { acquireSingleInstance } from "./single-instance.mjs";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -37,6 +39,7 @@ export async function boot({ env = process.env, headless = false } = {}) {
   const port = resolvePort(env);
   const secrets = loadOrCreateSecrets(isolation.dataDir);
   const runtimeDir = resolveRuntimeDir({ env, packageRoot });
+  assertRuntimeGuard(runtimeDir);
 
   logBoot("isolated", `dataDir=${isolation.dataDir} port=${port}`);
 
@@ -49,19 +52,6 @@ export async function boot({ env = process.env, headless = false } = {}) {
   });
 
   const health = await supervisor.start();
-
-  // The staged gateway must not expose self-update / cross-process kill routes.
-  // Check once per boot so a stale runtime is caught before the window opens.
-  const guard = summarize(await checkExperimentalRouteBlocks({ baseUrl: `http://127.0.0.1:${port}` }));
-  if (guard.failures.length) {
-    await supervisor.stop();
-    throw new IsolationError(
-      `Experimental route guard failed (${guard.failures
-        .map((f) => `${f.name}=${f.status}`)
-        .join(", ")}). The staged runtime predates the safety build; restage it with "npm run desktop:stage".`,
-      { failures: guard.failures }
-    );
-  }
 
   const status = initialStatus({ port, dataDir: isolation.dataDir, runtimeDir });
   const next = await refreshStatus(status);
@@ -90,19 +80,43 @@ async function main() {
     await showWindow(JSON.parse(process.env.GPU_UIX_WINDOW_STATUS));
     return;
   }
+  if (process.argv.includes("--gpuix-port-prompt")) {
+    await showPortPrompt(Number(process.env.GPU_UIX_CONFLICT_PORT));
+    return;
+  }
   const headless = process.env.NINEROUTER_GPU_UIX_HEADLESS === "1";
+  const identity = fs.realpathSync(resolveIsolation({ env: process.env }).dataDir);
+  let controller;
+  let pendingActivation = false;
+  const instance = await acquireSingleInstance(identity, () => {
+    if (controller) controller.open();
+    else pendingActivation = true;
+  });
+  if (!instance.primary) return;
   let session;
-  try {
-    session = await boot({ headless });
-  } catch (error) {
-    if (error instanceof PortConflictError) {
-      logBoot(error.message);
-    } else if (error instanceof IsolationError) {
-      logBoot("isolation check failed:", error.message);
-    } else {
-      logBoot("gateway failed to start:", error && (error.message || String(error)));
+  let env = process.env;
+  while (!session) {
+    try {
+      session = await boot({ env, headless });
+    } catch (error) {
+      if (error instanceof PortConflictError) {
+        logBoot(error.message);
+        if (!headless) {
+          const port = await askForPort({ entry: process.argv[1], occupiedPort: error.port });
+          if (port === null) {
+            await instance.close();
+            return;
+          }
+          env = { ...env, NINEROUTER_GPU_UIX_PORT: String(port) };
+          continue;
+        }
+      } else if (error instanceof IsolationError) {
+        logBoot("isolation check failed:", error.message);
+      } else {
+        logBoot("gateway failed to start:", error && (error.message || String(error)));
+      }
+      process.exit(1);
     }
-    process.exit(1);
   }
 
   const { supervisor, status, isolation } = session;
@@ -141,7 +155,7 @@ async function main() {
   const SysTray = systray.default.default || systray.default;
   const icon = fs.readFileSync(path.join(packageRoot, "dist", "icon.ico")).toString("base64");
   let closing = false;
-  const controller = new TrayController({
+  controller = new TrayController({
     createTray: (options) => new SysTray(options),
     icon,
     windowEntry: process.argv[1],
@@ -156,6 +170,7 @@ async function main() {
   process.on("exit", () => controller.stop());
   try {
     await controller.start();
+    if (pendingActivation) controller.open();
   } catch (error) {
     controller.stop();
     await supervisor.stop();
@@ -163,14 +178,45 @@ async function main() {
   }
 }
 
-async function showWindow(status) {
+async function showPortPrompt(occupiedPort) {
   const React = (await import("react")).default;
   const { render } = await import("@gpuix/react");
+  const { PortConflict } = await import("./ui/PortConflict.mjs");
+  render(React.createElement(PortConflict, {
+    occupiedPort,
+    onChoose: (port) => {
+      if (process.send) process.send({ type: "gpuix-port-choice", port }, () => process.exit(0));
+      else process.exit(1);
+    },
+    onCancel: () => process.exit(0),
+  }), { title: "9Router Experimental - Port Conflict", width: 600, height: 320, focus: true, show: true });
+}
+
+async function showWindow(status) {
+  const React = (await import("react")).default;
+  const { render, useGpuix } = await import("@gpuix/react");
   const { StatusPanel } = await import("./ui/StatusPanel.mjs");
 
+  let activate;
+  let pendingActivation = false;
+  process.on("message", (message) => {
+    if (message?.type !== "gpuix-activate") return;
+    if (activate) activate();
+    else pendingActivation = true;
+  });
   const h = React.createElement;
   function App() {
     const [current, setCurrent] = React.useState(status);
+    const { renderer } = useGpuix();
+    React.useEffect(() => {
+      if (!renderer) return;
+      activate = () => renderer.activateWindow();
+      if (pendingActivation) {
+        pendingActivation = false;
+        activate();
+      }
+      return () => { activate = null; };
+    }, [renderer]);
     const onRefresh = React.useCallback(() => {
       setCurrent((prev) => ({ ...prev, phase: "connecting", lastError: null }));
       void refreshStatus(current).then(setCurrent);

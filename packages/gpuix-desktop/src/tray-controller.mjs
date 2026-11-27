@@ -11,6 +11,7 @@ export class TrayController {
     this.window = null;
     this.tray = null;
     this.stopping = false;
+    this.pendingOpen = false;
   }
 
   async start() {
@@ -51,17 +52,30 @@ export class TrayController {
   }
 
   open() {
-    if (this.stopping || this.window) return;
+    if (this.stopping) return;
+    if (this.window) {
+      const child = this.window;
+      if (!child.connected) this.pendingOpen = true;
+      else child.send({ type: "gpuix-activate" }, (error) => {
+        if (!error || this.stopping) return;
+        if (this.window === child) this.pendingOpen = true;
+        else this.open();
+      });
+      return;
+    }
+    this.pendingOpen = false;
     const child = this.spawnWindow(process.execPath, [this.windowEntry, "--gpuix-window"], {
       env: { ...process.env, GPU_UIX_WINDOW_STATUS: JSON.stringify(this.status) },
-      stdio: "inherit",
+      stdio: ["inherit", "inherit", "inherit", "ipc"],
     });
     this.window = child;
     child.once("exit", () => {
       if (this.window === child) this.window = null;
+      if (this.pendingOpen) this.open();
     });
     child.once("error", () => {
       if (this.window === child) this.window = null;
+      if (this.pendingOpen) this.open();
     });
   }
 

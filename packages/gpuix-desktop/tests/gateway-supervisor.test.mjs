@@ -49,6 +49,16 @@ describe("isPortBusy", () => {
     await new Promise((r) => freeServer.close(r));
     expect(await isPortBusy(free)).toBe(false);
   });
+
+  it("detects a listener on another loopback address", async () => {
+    const server = net.createServer();
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.2", resolve);
+    });
+    cleanups.push(() => new Promise((resolve) => server.close(resolve)));
+    expect(await isPortBusy(server.address().port)).toBe(true);
+  });
 });
 
 describe("waitForHealth", () => {
@@ -113,6 +123,61 @@ describe("GatewaySupervisor", () => {
     await expect(supervisor.start()).rejects.toBeInstanceOf(PortConflictError);
     expect(supervisor.isRunning()).toBe(false);
   });
+
+  it("does not probe a foreign listener that wins the bind race", async () => {
+    let requests = 0;
+    const occupant = createServer((_req, res) => {
+      requests++;
+      res.writeHead(200, { "content-type": "application/json" }).end('{"ok":true}');
+    });
+    await new Promise((resolve) => occupant.listen(0, "127.0.0.1", resolve));
+    cleanups.push(() => new Promise((resolve) => occupant.close(resolve)));
+    const port = occupant.address().port;
+    const dir = tempDir();
+    fakeNodeScript(dir, 'require("node:http").createServer().listen(Number(process.env.PORT), "127.0.0.1");');
+    const supervisor = new GatewaySupervisor({
+      runtimeDir: dir,
+      port,
+      logDir: tempDir(),
+      secrets: {},
+      env: { ...process.env, PORT: String(port) },
+      healthTimeoutMs: 3000,
+      portIsBusy: async () => false,
+    });
+    cleanups.push(() => supervisor.stop());
+    await expect(supervisor.start()).rejects.toThrow();
+    expect(requests).toBe(0);
+    expect(occupant.listening).toBe(true);
+  }, 15000);
+
+  it.skipIf(process.platform !== "win32")("rejects overlapping wildcard binds before health probing", async () => {
+    let requests = 0;
+    const occupant = createServer((_req, res) => {
+      requests++;
+      res.writeHead(200).end();
+    });
+    await new Promise((resolve, reject) => {
+      occupant.once("error", reject);
+      occupant.listen(0, "127.0.0.2", resolve);
+    });
+    cleanups.push(() => new Promise((resolve) => occupant.close(resolve)));
+    const port = occupant.address().port;
+    const dir = tempDir();
+    fakeNodeScript(dir, 'require("node:http").createServer().listen(Number(process.env.PORT), "0.0.0.0");');
+    const supervisor = new GatewaySupervisor({
+      runtimeDir: dir,
+      port,
+      logDir: tempDir(),
+      secrets: {},
+      env: { ...process.env, PORT: String(port) },
+      healthTimeoutMs: 3000,
+      portIsBusy: async () => false,
+    });
+    cleanups.push(() => supervisor.stop());
+    await expect(supervisor.start()).rejects.toBeInstanceOf(PortConflictError);
+    expect(requests).toBe(0);
+    expect(occupant.listening).toBe(true);
+  }, 15000);
 
   it("starts a real child, becomes healthy, and stops without orphans", async () => {
     const dir = tempDir();

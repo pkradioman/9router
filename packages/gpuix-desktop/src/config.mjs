@@ -161,6 +161,9 @@ export function resolvePort(env = process.env) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new IsolationError(`NINEROUTER_GPU_UIX_PORT must be a TCP port between 1 and 65535, got "${raw}".`);
   }
+  if (port === 20128) {
+    throw new IsolationError("Port 20128 is reserved for the installed application.");
+  }
   return port;
 }
 
@@ -182,6 +185,7 @@ export function gatewayEnv({ isolation, port, secrets, runtimeDir, env = process
     API_KEY_SECRET: secrets.apiKeySecret,
     MACHINE_ID_SALT: secrets.machineIdSalt,
     NEXT_TELEMETRY_DISABLED: "1",
+    DISABLE_BACKGROUND_TOKEN_REFRESH: "1",
     GPU_UIX_RUNTIME_DIR: runtimeDir,
   };
 }

@@ -42,6 +42,10 @@ describe("resolvePort", () => {
     expect(resolvePort({ NINEROUTER_GPU_UIX_PORT: "20200" })).toBe(20200);
   });
 
+  it("never accepts the installed application's port", () => {
+    expect(() => resolvePort({ NINEROUTER_GPU_UIX_PORT: "20128" })).toThrow(IsolationError);
+  });
+
   it.each(["0", "-1", "70000", "abc", "2 0129"])("rejects invalid override %s", (value) => {
     expect(() => resolvePort({ NINEROUTER_GPU_UIX_PORT: value })).toThrow(IsolationError);
   });
@@ -144,12 +148,13 @@ describe("gatewayEnv", () => {
       port: 20129,
       secrets: { initialPassword: "p", jwtSecret: "j", apiKeySecret: "a", machineIdSalt: "m" },
       runtimeDir: path.join(root, "runtime"),
-      env: { PATH: "x", TRUST_PROXY: "true", DATA_DIR: isolation.sharedDataDir },
+      env: { PATH: "x", TRUST_PROXY: "true", DATA_DIR: isolation.sharedDataDir, DISABLE_BACKGROUND_TOKEN_REFRESH: "0" },
     });
     expect(env.DATA_DIR).toBe(isolation.dataDir);
     expect(env.PORT).toBe("20129");
     expect(env.HOSTNAME).toBe("0.0.0.0");
     expect(env.TRUST_PROXY).toBeUndefined();
+    expect(env.DISABLE_BACKGROUND_TOKEN_REFRESH).toBe("1");
     expect(env.INITIAL_PASSWORD).toBe("p");
     expect(env.API_KEY_SECRET).toBe("a");
     expect(env.PATH).toBe("x");

@@ -14,6 +14,8 @@ function fixture() {
   const spawnWindow = vi.fn(() => {
     const child = new EventEmitter();
     child.kill = vi.fn();
+    child.send = vi.fn();
+    child.connected = true;
     children.push(child);
     return child;
   });
@@ -39,6 +41,7 @@ describe("TrayController", () => {
     expect(children).toHaveLength(1);
     tray.click({ seq_id: 0 });
     expect(children).toHaveLength(1);
+    expect(children[0].send).toHaveBeenCalledWith({ type: "gpuix-activate" }, expect.any(Function));
     children[0].emit("exit", 0);
     tray.click({ seq_id: 0 });
     expect(children).toHaveLength(2);
@@ -59,6 +62,19 @@ describe("TrayController", () => {
     expect(tray.kill).toHaveBeenCalledOnce();
     tray.exit();
     expect(onQuit).toHaveBeenCalledTimes(2);
+  });
+
+  it("reopens after an activation arrives while the window disconnects", async () => {
+    const { controller, tray, children } = fixture();
+    const started = controller.start();
+    tray.ready();
+    await started;
+    children[0].connected = false;
+    controller.open();
+    expect(children).toHaveLength(1);
+    children[0].emit("exit", 0);
+    expect(children).toHaveLength(2);
+    controller.stop();
   });
 
   it("fails startup if tray helper cannot launch", async () => {

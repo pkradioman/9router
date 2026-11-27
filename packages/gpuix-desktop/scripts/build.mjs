@@ -37,5 +37,6 @@ await build({
 });
 
 fs.copyFileSync(path.join(packageRoot, "..", "..", "electron", "icon.ico"), path.join(packageRoot, "dist", "icon.ico"));
+fs.copyFileSync(path.join(packageRoot, "src", "gateway-ready.mjs"), path.join(packageRoot, "dist", "gateway-ready.mjs"));
 const size = fs.statSync(outfile).size;
 console.log(`[build] ${path.relative(packageRoot, outfile)} ${(size / 1024).toFixed(1)} KiB`);
