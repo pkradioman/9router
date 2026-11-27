@@ -110,6 +110,11 @@ Rules:
   Every build is exercised on the staging instance first, and the production install waits
   for the owner's explicit go-ahead (see Staging → production).
 - `desktop-app/` and `desktop-dist/` are build outputs; never commit them.
+- Run the installer from Git Bash as `MSYS_NO_PATHCONV=1 ./dist-electron/9Router-<ver>-setup.exe /S`.
+  Plain `/S` gets mangled into a path by MSYS and opens the assisted wizard instead, which
+  also closes the running app before the user ever confirms — production goes down for
+  nothing. Verify silence: no `9Router Setup` window and the install dir's `9Router.exe`
+  mtime updates within ~1 min.
 
 ## Staging → production
 
@@ -252,19 +257,21 @@ Conventional Commits, one concern per commit. Fork commits should name the area
 
 ## Current state
 
-- Source version **0.5.128**, branch `fork/main`, upstream merged at `5ae63d22` (v0.5.123).
-- Windows production runs **0.5.128** (installed 2026-11-28, tagged `fork-v0.5.128`); data dir
+- Source version **0.5.129**, branch `fork/main`, upstream merged at `5ae63d22` (v0.5.123).
+- Windows production runs **0.5.129** (installed 2026-11-28, tagged `fork-v0.5.129`); data dir
   `%APPDATA%\9router`. Staging runs the same build on `127.0.0.1:20129` with
   `%APPDATA%\9router-staging`.
 - Cloudflare: `cloudflare-ai` honours `providerSpecificData.gatewayId` (AI Gateway
   `/compat/chat/completions` + `cf-aig-authorization`); the production connection `k-0` uses
   `gatewayId=proxy`, so `custom-token-router/...` custom-provider models route. Test/validate
   probe an enabled model (custom first in gateway mode, else enabled built-in chat model,
-  else `@cf/openai/gpt-oss-20b`) instead of clef-flash.
-- Staging evidence (2026-11-28): Test → valid; validate with gateway psd → valid; real chat
-  through `custom-token-router/deepseek/...` → 200 and `usageHistory` rows with cost.
-  Observed once: the first request against a freshly seeded staging DB wrote no usage row;
-  not reproduced on the next stream/non-stream requests.
+  else `@cf/openai/gpt-oss-20b`) instead of clef-flash. Connections with a gateway id show a
+  `via gateway` badge on the provider page (0.5.129).
+- Staging evidence (2026-11-28, 0.5.129): Test → valid; validate with gateway psd → valid;
+  real chat `cf/custom-token-router/deepseek/...` (stream + non-stream) → 200 and
+  `usageHistory` rows `provider: cloudflare-ai` with cost components summing to total; badge
+  rendered on the staging dashboard. The first request against a freshly seeded staging DB
+  wrote no usage row (seen again on 0.5.129); the next requests do.
 - Ubuntu x64 AppImage **0.5.126** installed per-user on `ubuntu-dell`; its launcher uses
   `~/.local/share/9router-linux-desktop` to avoid the machine's existing `~/.9router` data.
   Login and dashboard navigation passed on an isolated X11 display; tray interaction and
@@ -274,5 +281,6 @@ Conventional Commits, one concern per commit. Fork commits should name the area
 - Pending, not started: caveman OFF cohort needs a comparable window before the Token Saver
   comparison is meaningful; RTK effectiveness should be read after ~1–2 weeks of traffic.
 - Pending: production traffic through the Cloudflare gateway should be confirmed from real
-  client requests; the registry still lists deprecated CF ids (`kimi-k2.5` → `kimi-k2.6`,
-  `llama-3.1-8b-instruct-awq` returns 410).
+  client requests. Owner-verified so far: one prod request `cf/custom-token-router/...` → 200
+  with a `cloudflare-ai` usage row (cost 0.00006468). The registry still lists deprecated CF
+  ids (`kimi-k2.5` → `kimi-k2.6`, `llama-3.1-8b-instruct-awq` returns 410).
