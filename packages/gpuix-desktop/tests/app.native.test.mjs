@@ -763,7 +763,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("lists proxy pools, toggles and deletes one", async () => {
     const api = createFakeApi([], [], [], [
-      { id: "pp1", name: "home", proxyUrl: "http://10.0.0.2:8080", type: "http", isActive: true },
+      { id: "pp1", name: "home", proxyUrl: "http://10.0.0.2:8080", type: "http", isActive: true, boundConnectionCount: 2 },
     ]);
     const root = createTestRoot({ width: 1080, height: 720 });
     root.render(h(App, { api, status: status(), onRefresh: () => {} }));
@@ -774,6 +774,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     let painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("home");
     expect(painted).toContain("http://10.0.0.2:8080");
+    expect(painted).toContain("2 bound");
 
     click(root.renderer, "pool-toggle-pp1");
     await settle(root);

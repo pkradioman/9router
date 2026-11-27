@@ -85,7 +85,9 @@ function PoolRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
         h(
           "text",
           { style: { color: theme.muted, fontSize: 11 } },
-          `${item.type || "http"}${item.strictProxy ? " · strict" : ""} · ${item.proxyUrl}`
+          `${item.type || "http"}${item.strictProxy ? " · strict" : ""} · ${item.proxyUrl}${
+            item.boundConnectionCount > 0 ? ` · ${item.boundConnectionCount} bound` : ""
+          }`
         )
       ),
       action(
@@ -182,7 +184,7 @@ export function ProxyPoolsPage({ api }) {
     setError("");
     setPools(null);
     api
-      .listProxyPools()
+      .listProxyPools(true)
       .then(setPools)
       .catch((err) => {
         setPools([]);

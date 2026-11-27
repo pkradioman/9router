@@ -302,6 +302,14 @@ describe("createGatewayApi", () => {
     expect(calls[0].init.method).toBe("POST");
   });
 
+  it("requests proxy pools with binding counts", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ proxyPools: [] }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.listProxyPools(true);
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/proxy-pools?includeUsage=true");
+  });
+
   it("reads headroom status", async () => {
     const body = { installed: false, running: false, version: null, url: "http://127.0.0.1:5757" };
     const { calls, fetchImpl } = fakeFetch(() => json(body));

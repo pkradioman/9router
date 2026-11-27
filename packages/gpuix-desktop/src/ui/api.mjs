@@ -122,8 +122,8 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       request("/api/settings/proxy-test", { method: "POST", body: { proxyUrl } }),
     getTokenSaverStats: (period) => request(`/api/token-saver/stats?period=${encodeURIComponent(period)}`),
     getHeadroomStatus: () => request("/api/headroom/status"),
-    listProxyPools: async () => {
-      const body = await request("/api/proxy-pools");
+    listProxyPools: async (includeUsage = false) => {
+      const body = await request(`/api/proxy-pools${includeUsage ? "?includeUsage=true" : ""}`);
       return (body && body.proxyPools) || [];
     },
     createProxyPool: (pool) => request("/api/proxy-pools", { method: "POST", body: pool }),

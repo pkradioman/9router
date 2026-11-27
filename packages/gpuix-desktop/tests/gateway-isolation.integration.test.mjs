@@ -280,6 +280,9 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     });
     expect(bound.status).toBe(200);
     expect(bound.body.connection.providerSpecificData.proxyPoolId).toBe(bindPoolId);
+    const poolsWithUsage = await call("/api/proxy-pools?includeUsage=true");
+    expect(poolsWithUsage.status).toBe(200);
+    expect(poolsWithUsage.body.proxyPools.find((pool) => pool.id === bindPoolId).boundConnectionCount).toBe(1);
     const unbound = await call(`/api/providers/${encodeURIComponent(connectionId)}`, {
       method: "PUT",
       body: JSON.stringify({ proxyPoolId: null }),
