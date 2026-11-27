@@ -92,6 +92,10 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
         { timestamp: "2026-11-28T01:00:00Z", model: "gpt-4o", provider: "openai", promptTokens: 10, completionTokens: 5 },
       ],
     })),
+    getUsageChart: vi.fn(async () => [
+      { label: "Mon", tokens: 40, cost: 0, requests: 1 },
+      { label: "Tue", tokens: 120, cost: 0, requests: 2 },
+    ]),
     listCombos: vi.fn(async () => combos.map((item) => ({ ...item }))),
     createCombo: vi.fn(async (name) => {
       const created = { id: `c${combos.length + 1}`, name, kind: null, models: [] };
@@ -383,11 +387,15 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("$0.1234");
     expect(painted).toContain("gpt-4o");
     expect(painted).toContain("openai");
+    expect(painted).toContain("Tokens by bucket");
+    expect(painted).toContain("120 tok");
     expect(api.getUsageStats).toHaveBeenCalledWith("7d");
+    expect(api.getUsageChart).toHaveBeenCalledWith("7d");
 
     click(root.renderer, "usage-period-24h");
     await settle(root);
     expect(api.getUsageStats).toHaveBeenLastCalledWith("24h");
+    expect(api.getUsageChart).toHaveBeenLastCalledWith("24h");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("7");
   });

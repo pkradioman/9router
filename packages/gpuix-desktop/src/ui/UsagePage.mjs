@@ -40,15 +40,21 @@ function providerRows(stats) {
 export function UsagePage({ api }) {
   const [period, setPeriod] = React.useState("7d");
   const [stats, setStats] = React.useState(null);
+  const [chart, setChart] = React.useState(null);
   const [error, setError] = React.useState("");
 
   const load = React.useCallback(() => {
     setError("");
     setStats(null);
+    setChart(null);
     api
       .getUsageStats(period)
       .then(setStats)
       .catch((err) => setError(err.message));
+    api
+      .getUsageChart(period)
+      .then(setChart)
+      .catch(() => setChart([]));
   }, [api, period]);
 
   React.useEffect(() => {
@@ -158,6 +164,73 @@ export function UsagePage({ api }) {
         : stats
           ? h("text", { testId: "usage-empty", style: { color: theme.muted, fontSize: 12 } }, "No usage in this period.")
           : null
+    ),
+    h(
+      "div",
+      {
+        testId: "usage-chart",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: theme.panel,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 10,
+          padding: 16,
+          gap: 6,
+        },
+      },
+      h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Tokens by bucket"),
+      chart === null
+        ? h("text", { testId: "usage-chart-loading", style: { color: theme.muted, fontSize: 11 } }, "Loading chart...")
+        : chart.length === 0
+          ? h("text", { testId: "usage-chart-empty", style: { color: theme.muted, fontSize: 11 } }, "No buckets.")
+          : (() => {
+              const buckets = chart.slice(-12);
+              const max = Math.max(1, ...buckets.map((b) => b.tokens || 0));
+              return h(
+                "div",
+                { style: { display: "flex", flexDirection: "column", gap: 4 } },
+                ...buckets.map((bucket, index) => {
+                  const tokens = bucket.tokens || 0;
+                  return h(
+                    "div",
+                    {
+                      key: `${bucket.label || index}`,
+                      style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8 },
+                    },
+                    h("text", { style: { color: theme.muted, fontSize: 10, width: 96 } }, String(bucket.label || "")),
+                    h(
+                      "div",
+                      {
+                        style: {
+                          display: "flex",
+                          flexDirection: "row",
+                          flexGrow: 1,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: theme.panelAlt,
+                        },
+                      },
+                      h("div", {
+                        style: {
+                          flexGrow: tokens === 0 ? 0.001 : tokens,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: theme.ok,
+                        },
+                      }),
+                      h("div", { style: { flexGrow: Math.max(max - tokens, 0.001), height: 8 } })
+                    ),
+                    h(
+                      "text",
+                      { style: { color: theme.text, fontSize: 10, width: 70 } },
+                      `${tokens} tok`
+                    )
+                  );
+                })
+              );
+            })()
     ),
     h(
       "div",

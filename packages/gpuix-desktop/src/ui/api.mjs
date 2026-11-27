@@ -60,6 +60,7 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     createProviderNode: (node) => request("/api/provider-nodes", { method: "POST", body: node }),
     deleteProviderNode: (id) => request(`/api/provider-nodes/${encodeURIComponent(id)}`, { method: "DELETE" }),
     getUsageStats: (period) => request(`/api/usage/stats?period=${encodeURIComponent(period)}`),
+    getUsageChart: (period) => request(`/api/usage/chart?period=${encodeURIComponent(period)}`),
     getRequestDetails: (page = 1, pageSize = 20) =>
       request(`/api/usage/request-details?page=${page}&pageSize=${pageSize}`),
     listCombos: async () => {

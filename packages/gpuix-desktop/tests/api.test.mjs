@@ -199,6 +199,14 @@ describe("createGatewayApi", () => {
     expect(calls[0].init.method).toBe("POST");
   });
 
+  it("requests usage chart data for the selected period", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json([{ label: "Mon", tokens: 1 }]));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getUsageChart("24h")).toEqual([{ label: "Mon", tokens: 1 }]);
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/usage/chart?period=24h");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
