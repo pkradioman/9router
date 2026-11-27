@@ -257,6 +257,16 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/tunnel/status");
   });
 
+  it("tests a routed model", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ ok: true }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.testModel("openai/gpt-4o")).toEqual({ ok: true });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/models/test");
+    expect(calls[0].init.method).toBe("POST");
+    expect(JSON.parse(calls[0].init.body)).toEqual({ model: "openai/gpt-4o", kind: "llm" });
+  });
+
   it("tests an outbound proxy url", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ ok: true, status: 200, elapsedMs: 12 }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

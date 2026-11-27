@@ -22,9 +22,10 @@ function capsLabel(caps) {
   return [caps.vision ? "vision" : null, caps.reasoning ? "reasoning" : null].filter(Boolean).join(" · ");
 }
 
-function ModelRow({ item, disabled, isCustom, busy, onToggle, onAlias, onDeleteCustom }) {
+function ModelRow({ item, disabled, isCustom, busy, onToggle, onAlias, onDeleteCustom, onTest }) {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(item.alias || "");
+  const [testState, setTestState] = React.useState({ phase: "idle", message: "" });
 
   const saveAlias = () => {
     const value = draft.trim();
@@ -34,6 +35,16 @@ function ModelRow({ item, disabled, isCustom, busy, onToggle, onAlias, onDeleteC
   };
 
   const caps = capsLabel(item.caps);
+
+  const runTest = () => {
+    setTestState({ phase: "running", message: "" });
+    onTest(item)
+      .then((result) => {
+        if (result && result.ok) setTestState({ phase: "ok", message: "Test passed" });
+        else setTestState({ phase: "fail", message: `Test failed: ${(result && result.error) || "no details"}` });
+      })
+      .catch((err) => setTestState({ phase: "fail", message: `Test failed: ${err.message}` }));
+  };
 
   return h(
     "div",
@@ -60,6 +71,21 @@ function ModelRow({ item, disabled, isCustom, busy, onToggle, onAlias, onDeleteC
       isCustom
         ? h("text", { style: { color: theme.muted, fontSize: 10 } }, "custom")
         : null,
+      h(
+        "text",
+        {
+          testId: `model-test-${item.fullModel}`,
+          role: "button",
+          onClick: () => (busy || testState.phase === "running" ? null : runTest()),
+          style: {
+            color: testState.phase === "ok" ? theme.ok : testState.phase === "fail" ? theme.bad : theme.muted,
+            fontSize: 10,
+            cursor: busy ? "default" : "pointer",
+            hover: busy ? {} : { color: theme.text },
+          },
+        },
+        testState.phase === "running" ? "Testing..." : "Test"
+      ),
       h(
         "text",
         {
@@ -98,6 +124,16 @@ function ModelRow({ item, disabled, isCustom, busy, onToggle, onAlias, onDeleteC
           )
         : null
     ),
+    testState.phase === "ok" || testState.phase === "fail"
+      ? h(
+          "text",
+          {
+            testId: `model-test-result-${item.fullModel}`,
+            style: { color: testState.phase === "ok" ? theme.ok : theme.bad, fontSize: 10 },
+          },
+          testState.message
+        )
+      : null,
     editing
       ? h(
           "div",
@@ -320,6 +356,7 @@ export function ModelsPage({ api }) {
                       onToggle: toggle,
                       onAlias: setAlias,
                       onDeleteCustom: removeCustom,
+                      onTest: (row) => api.testModel(row.routedModel || row.fullModel),
                     })
                   )
                 );
@@ -328,7 +365,7 @@ export function ModelsPage({ api }) {
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Same data the dashboard edits inside a provider. Model tests and catalog sync stay on the dashboard because they call provider accounts."
+        "Test sends one real request to the configured provider. Catalog sync stays on the dashboard."
       )
     )
   );

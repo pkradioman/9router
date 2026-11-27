@@ -171,6 +171,16 @@ describe.runIf(canRun)("mock provider usage through the isolated gateway", () =>
     expect(stats.totalCompletionTokens).toBe(8);
     expect(Object.keys(stats.byProvider || {})).toEqual([node.id]);
 
+    // The native model Test button pings through the same synthetic node, so the
+    // whole path is proven without touching a real provider account.
+    const modelTest = await fetch(`${baseUrl}/api/models/test`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ model: "usagemock/mock-model" }),
+    });
+    expect(modelTest.status).toBe(200);
+    expect((await modelTest.json()).ok).toBe(true);
+
     await api.deleteKey(key.id);
     await supervisor.stop();
 

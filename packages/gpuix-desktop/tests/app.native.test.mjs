@@ -102,6 +102,9 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     deleteCustomModel: vi.fn(async () => ({ success: true })),
     setModelAlias: vi.fn(async () => ({ success: true })),
     deleteModelAlias: vi.fn(async () => ({ success: true })),
+    testModel: vi.fn(async (model) =>
+      model.includes("mini") ? { ok: false, error: "unreachable" } : { ok: true }
+    ),
     getUsageStats: vi.fn(async (period) => ({
       totalRequests: period === "7d" ? 42 : 7,
       totalPromptTokens: 1000,
@@ -509,6 +512,16 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "model-delete-openai/my-model");
     await settle(root);
     expect(api.deleteCustomModel).toHaveBeenCalledWith("openai", "my-model");
+
+    click(root.renderer, "model-test-openai/gpt-4o");
+    await settle(root);
+    expect(api.testModel).toHaveBeenCalledWith("openai/gpt-4o");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Test passed");
+
+    click(root.renderer, "model-test-openai/gpt-4o-mini");
+    await settle(root);
+    expect(api.testModel).toHaveBeenLastCalledWith("openai/gpt-4o-mini");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Test failed: unreachable");
 
     click(root.renderer, "model-alias-anthropic/claude-sonnet");
     await settle(root);
