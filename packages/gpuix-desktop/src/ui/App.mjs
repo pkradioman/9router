@@ -16,6 +16,7 @@ import { ProxyPoolsPage } from "./ProxyPoolsPage.mjs";
 import { CliToolsPage } from "./CliToolsPage.mjs";
 import { SkillsPage } from "./SkillsPage.mjs";
 import { ProfilePage } from "./ProfilePage.mjs";
+import { TranslatorPage } from "./TranslatorPage.mjs";
 import { StatusPanel } from "./StatusPanel.mjs";
 
 const h = React.createElement;
@@ -29,7 +30,7 @@ const PAGES = [
   { id: "quota", label: "Quota Tracker", enabled: false },
   { id: "token-saver", label: "Token Saver", enabled: true },
   { id: "cli-tools", label: "CLI Tools", enabled: true },
-  { id: "translator", label: "Translator", enabled: false },
+  { id: "translator", label: "Translator", enabled: true },
   { id: "console-log", label: "Console Log", enabled: true },
   { id: "proxy-pools", label: "Proxy Pools", enabled: true },
   { id: "skills", label: "Skills", enabled: true },
@@ -113,6 +114,7 @@ export function App({ api, status, onRefresh }) {
   else if (page === "cli-tools") content = h(CliToolsPage, { api });
   else if (page === "skills") content = h(SkillsPage);
   else if (page === "profile") content = h(ProfilePage, { api, status });
+  else if (page === "translator") content = h(TranslatorPage, { api });
   else content = h(EndpointPage, { api, status, onRefresh });
 
   return h(

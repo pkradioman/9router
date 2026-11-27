@@ -128,6 +128,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       droid: { installed: false },
       hermes: null,
     })),
+    getTranslatorFile: vi.fn(async (file) => `{"file":"${file}","marker":"body"}`),
   };
   api.snapshot = () => keys;
   return api;
@@ -481,5 +482,25 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.patchSettings).toHaveBeenLastCalledWith({ tunnelDashboardAccess: true });
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("Enabled");
+  });
+
+  it("loads translator step files read-only", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-translator");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("1_req_client.json");
+    expect(api.getTranslatorFile).toHaveBeenCalledWith("1_req_client.json");
+    expect(painted).toContain("marker");
+
+    click(root.renderer, "translator-step-5");
+    await settle(root);
+    expect(api.getTranslatorFile).toHaveBeenLastCalledWith("5_res_provider.txt");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("5_res_provider.txt");
   });
 });

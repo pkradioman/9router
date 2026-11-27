@@ -76,5 +76,9 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       request(`/api/proxy-pools/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
     deleteProxyPool: (id) => request(`/api/proxy-pools/${encodeURIComponent(id)}`, { method: "DELETE" }),
     getCliToolStatuses: () => request("/api/cli-tools/all-statuses"),
+    getTranslatorFile: async (file) => {
+      const body = await request(`/api/translator/load?file=${encodeURIComponent(file)}`);
+      return (body && body.content) || "";
+    },
   };
 }

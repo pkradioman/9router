@@ -158,6 +158,14 @@ describe("createGatewayApi", () => {
     expect(calls[0].url).toBe("http://127.0.0.1:20129/api/cli-tools/all-statuses");
   });
 
+  it("loads a translator step file", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ success: true, content: "{\"ok\":true}" }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getTranslatorFile("1_req_client.json")).toBe("{\"ok\":true}");
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/translator/load?file=1_req_client.json");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
