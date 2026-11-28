@@ -116,7 +116,8 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       const body = await request("/api/combos");
       return (body && body.combos) || [];
     },
-    createCombo: (name) => request("/api/combos", { method: "POST", body: { name } }),
+    createCombo: (name, kind = null) =>
+      request("/api/combos", { method: "POST", body: { name, ...(kind ? { kind } : {}) } }),
     updateCombo: (id, patch) => request(`/api/combos/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
     getComboPresets: (source) => request(`/api/combos/presets?source=${encodeURIComponent(source)}`),
     createComboPresets: (source) => request("/api/combos/presets", { method: "POST", body: { source } }),

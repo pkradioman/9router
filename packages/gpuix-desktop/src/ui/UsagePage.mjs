@@ -12,6 +12,7 @@ const PERIODS = [
   { id: "24h", label: "24h" },
   { id: "7d", label: "7d" },
   { id: "30d", label: "30d" },
+  { id: "60d", label: "60d" },
   { id: "all", label: "All" },
 ];
 

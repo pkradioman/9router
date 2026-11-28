@@ -149,8 +149,8 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       { label: "Tue", tokens: 120, cost: 0, requests: 2 },
     ]),
     listCombos: vi.fn(async () => combos.map((item) => ({ ...item }))),
-    createCombo: vi.fn(async (name) => {
-      const created = { id: `c${combos.length + 1}`, name, kind: null, models: [] };
+    createCombo: vi.fn(async (name, kind = null) => {
+      const created = { id: `c${combos.length + 1}`, name, kind: kind || null, models: [] };
       combos = [created, ...combos];
       return created;
     }),
@@ -560,10 +560,14 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
   });
 
   it("lists media providers by kind and toggles their connections", async () => {
-    const api = createFakeApi([], [
-      { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },
-      { id: "p2", name: "Backup", provider: "openai", authType: "apikey", isActive: true },
-    ]);
+    const api = createFakeApi(
+      [],
+      [
+        { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },
+        { id: "p2", name: "Backup", provider: "openai", authType: "apikey", isActive: true },
+      ],
+      [{ id: "c9", name: "search-combo", kind: "webSearch", models: [{}, {}, {}] }]
+    );
     await api.createProviderNode({
       name: "Local Emb",
       prefix: "le",
@@ -619,6 +623,15 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "media-model-toggle-openai-dall-e-3");
     await settle(root);
     expect(api.enableModel).toHaveBeenCalledWith("openai", "dall-e-3");
+
+    click(root.renderer, "media-kind-webSearch");
+    await settle(root);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("search-combo");
+    expect(painted).toContain("3 models");
+    click(root.renderer, "media-create-combo");
+    await settle(root);
+    expect(api.createCombo).toHaveBeenCalledWith("search-combo-1", "webSearch");
   });
 
   it("lists model cooldowns and clears one", async () => {

@@ -332,6 +332,14 @@ describe("createGatewayApi", () => {
     expect(JSON.parse(calls[1].init.body)).toEqual({ source: "cursor" });
   });
 
+  it("creates a combo with a media kind", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ id: "c1", name: "search-combo", kind: "webSearch" }, 201));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.createCombo("search-combo", "webSearch");
+    expect(calls[0].init.body).toBe('{"name":"search-combo","kind":"webSearch"}');
+  });
+
   it("updates a combo by id", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ id: "c 1", name: "mix", models: [] }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

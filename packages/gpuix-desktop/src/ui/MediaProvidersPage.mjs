@@ -44,6 +44,7 @@ export function MediaProvidersPage({ api, status }) {
   const [connections, setConnections] = React.useState(null);
   const [nodes, setNodes] = React.useState([]);
   const [customModels, setCustomModels] = React.useState([]);
+  const [combos, setCombos] = React.useState([]);
   const [disabled, setDisabled] = React.useState({});
   const [openProvider, setOpenProvider] = React.useState("");
   const [error, setError] = React.useState("");
@@ -52,17 +53,25 @@ export function MediaProvidersPage({ api, status }) {
   const load = React.useCallback(() => {
     setError("");
     setConnections(null);
-    Promise.all([api.listProviders(), api.listProviderNodes(), api.getDisabledModels(), api.listCustomModels()])
-      .then(([conns, nodeList, disabledMap, customList]) => {
+    Promise.all([
+      api.listProviders(),
+      api.listProviderNodes(),
+      api.getDisabledModels(),
+      api.listCustomModels(),
+      api.listCombos(),
+    ])
+      .then(([conns, nodeList, disabledMap, customList, comboList]) => {
         setConnections(conns);
         setNodes((nodeList || []).filter((node) => node.type === "custom-embedding"));
         setDisabled(disabledMap || {});
         setCustomModels(customList || []);
+        setCombos(comboList || []);
       })
       .catch((err) => {
         setConnections([]);
         setNodes([]);
         setCustomModels([]);
+        setCombos([]);
         setError(err.message);
       });
   }, [api]);
@@ -98,6 +107,24 @@ export function MediaProvidersPage({ api, status }) {
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
   };
+
+  const COMBO_BASE = { webSearch: "search-combo", webFetch: "fetch-combo" };
+  const createComboForKind = (comboKind) => {
+    const baseName = COMBO_BASE[comboKind];
+    if (!baseName) return;
+    const names = new Set(combos.map((combo) => combo.name));
+    let name = baseName;
+    let index = 1;
+    while (names.has(name)) name = `${baseName}-${index++}`;
+    setBusy(true);
+    setError("");
+    api
+      .createCombo(name, comboKind)
+      .then(load)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+  const kindCombos = combos.filter((combo) => combo.kind === kind);
 
   const base = providersForKind(kind);
   const custom =
@@ -332,6 +359,66 @@ export function MediaProvidersPage({ api, status }) {
               );
             })
     ),
+    COMBO_BASE[kind]
+      ? h(
+          "div",
+          {
+            testId: "media-combos",
+            style: {
+              display: "flex",
+              flexDirection: "column",
+              backgroundColor: theme.panel,
+              borderWidth: 1,
+              borderColor: theme.border,
+              borderRadius: 10,
+              padding: 16,
+              gap: 6,
+            },
+          },
+          h(
+            "div",
+            { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+            h(
+              "text",
+              { style: { color: theme.text, fontSize: 12, fontWeight: 600, flexGrow: 1 } },
+              `Combos — ${MEDIA_KINDS.find((entry) => entry.id === kind)?.label || kind}`
+            ),
+            h(
+              "text",
+              {
+                testId: "media-create-combo",
+                role: "button",
+                onClick: busy ? null : () => createComboForKind(kind),
+                style: { color: theme.ok, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+              },
+              "Create combo"
+            )
+          ),
+          kindCombos.length === 0
+            ? h(
+                "text",
+                { testId: "media-combos-empty", style: { color: theme.muted, fontSize: 11 } },
+                "No combos for this kind yet."
+              )
+            : kindCombos.map((combo) =>
+                h(
+                  "div",
+                  {
+                    key: combo.id,
+                    testId: `media-combo-${combo.id}`,
+                    style: { display: "flex", flexDirection: "row", gap: 10, paddingTop: 3, paddingBottom: 3 },
+                  },
+                  h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, combo.name),
+                  h("text", { style: { color: theme.muted, fontSize: 10 } }, `${(combo.models || []).length} models`)
+                )
+              ),
+          h(
+            "text",
+            { style: { color: theme.muted, fontSize: 10 } },
+            "Editing a media combo stays on the dashboard."
+          )
+        )
+      : null,
     h(
       "div",
       {
