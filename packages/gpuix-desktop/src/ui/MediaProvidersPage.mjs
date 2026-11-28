@@ -48,6 +48,7 @@ export function MediaProvidersPage({ api, status }) {
   const [disabled, setDisabled] = React.useState({});
   const [modelTests, setModelTests] = React.useState({});
   const [openProvider, setOpenProvider] = React.useState("");
+  const [openCombo, setOpenCombo] = React.useState("");
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
@@ -150,6 +151,15 @@ export function MediaProvidersPage({ api, status }) {
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
   };
+  const updateComboModels = (combo, models) => {
+    setBusy(true);
+    setError("");
+    Promise.resolve(api.updateCombo(combo.id, { models }))
+      .then(load)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
   const deleteComboRow = (id) => {
     setBusy(true);
     setError("");
@@ -483,32 +493,91 @@ export function MediaProvidersPage({ api, status }) {
                 { testId: "media-combos-empty", style: { color: theme.muted, fontSize: 11 } },
                 "No combos for this kind yet."
               )
-            : kindCombos.map((combo) =>
-                h(
+            : kindCombos.map((combo) => {
+                const models = (combo.models || []).map(String);
+                const open = openCombo === combo.id;
+                const candidates = MEDIA_MODELS.filter(
+                  (entry) => entry.kinds.includes(kind) && !models.includes(`${entry.alias}/${entry.model}`)
+                ).slice(0, 6);
+                return h(
                   "div",
-                  {
-                    key: combo.id,
-                    testId: `media-combo-${combo.id}`,
-                    style: { display: "flex", flexDirection: "row", gap: 10, paddingTop: 3, paddingBottom: 3 },
-                  },
-                  h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, combo.name),
-                  h("text", { style: { color: theme.muted, fontSize: 10 } }, `${(combo.models || []).length} models`),
+                  { key: combo.id, testId: `media-combo-${combo.id}`, style: { display: "flex", flexDirection: "column", gap: 2, paddingTop: 3, paddingBottom: 3 } },
                   h(
-                    "text",
-                    {
-                      testId: `media-combo-delete-${combo.id}`,
-                      role: "button",
-                      onClick: busy ? null : () => deleteComboRow(combo.id),
-                      style: { color: theme.bad, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
-                    },
-                    "Delete"
-                  )
-                )
-              ),
+                    "div",
+                    { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 } },
+                    h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, combo.name),
+                    h(
+                      "text",
+                      {
+                        testId: `media-combo-models-${combo.id}`,
+                        role: "button",
+                        onClick: busy ? null : () => setOpenCombo(open ? "" : combo.id),
+                        style: { color: theme.muted, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                      },
+                      `${open ? "Hide" : "Models"} (${models.length})`
+                    ),
+                    h(
+                      "text",
+                      {
+                        testId: `media-combo-delete-${combo.id}`,
+                        role: "button",
+                        onClick: busy ? null : () => deleteComboRow(combo.id),
+                        style: { color: theme.bad, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                      },
+                      "Delete"
+                    )
+                  ),
+                  open
+                    ? h(
+                        "div",
+                        { style: { display: "flex", flexDirection: "column", gap: 2, paddingLeft: 12 } },
+                        models.length === 0
+                          ? h("text", { style: { color: theme.muted, fontSize: 10 } }, "No models in this combo.")
+                          : models.map((model, index) =>
+                              h(
+                                "div",
+                                { key: `${model}-${index}`, style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 } },
+                                h("text", { style: { color: theme.text, fontSize: 10, fontFamily: "Consolas", flexGrow: 1 } }, model),
+                                h(
+                                  "text",
+                                  {
+                                    testId: `media-combo-remove-${combo.id}-${index}`,
+                                    role: "button",
+                                    onClick: busy ? null : () => updateComboModels(combo, models.filter((_, at) => at !== index)),
+                                    style: { color: theme.muted, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                                  },
+                                  "Remove"
+                                )
+                              )
+                            ),
+                        candidates.length > 0
+                          ? h(
+                              "div",
+                              { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 3 } },
+                              h("text", { style: { color: theme.muted, fontSize: 10 } }, "Add:"),
+                              ...candidates.map((entry, index) =>
+                                h(
+                                  "text",
+                                  {
+                                    key: `${entry.alias}/${entry.model}`,
+                                    testId: `media-combo-add-${combo.id}-${index}`,
+                                    role: "button",
+                                    onClick: busy ? null : () => updateComboModels(combo, [...models, `${entry.alias}/${entry.model}`]),
+                                    style: { color: theme.ok, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                                  },
+                                  entry.model
+                                )
+                              )
+                            )
+                          : null
+                      )
+                    : null
+                );
+              }),
           h(
             "text",
             { style: { color: theme.muted, fontSize: 10 } },
-            "Adding or reordering media combo models stays on the dashboard."
+            "Reordering media combo models stays on the dashboard."
           )
         )
       : null,

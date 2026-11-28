@@ -641,7 +641,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
         { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },
         { id: "p2", name: "Backup", provider: "openai", authType: "apikey", isActive: true },
       ],
-      [{ id: "c9", name: "search-combo", kind: "webSearch", models: [{}, {}, {}] }]
+      [{ id: "c9", name: "search-combo", kind: "webSearch", models: ["openai/a", "openai/b", "custom/c"] }]
     );
     await api.createProviderNode({
       name: "Local Emb",
@@ -713,16 +713,24 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     await settle(root);
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("search-combo");
-    expect(painted).toContain("3 models");
+    expect(painted).toContain("Models (3)");
     click(root.renderer, "media-create-combo");
     await settle(root);
     expect(api.createCombo).toHaveBeenCalledWith("search-combo-1", "webSearch");
 
+    click(root.renderer, "media-combo-models-c9");
+    await settle(root);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Hide (3)");
+    expect(painted).toContain("openai/a");
+    click(root.renderer, "media-combo-remove-c9-1");
+    await settle(root);
+    expect(api.updateCombo).toHaveBeenCalledWith("c9", { models: ["openai/a", "custom/c"] });
+
     click(root.renderer, "media-combo-delete-c9");
     await settle(root);
     expect(api.deleteCombo).toHaveBeenCalledWith("c9");
-    painted = root.renderer.getPaintedText().join("\n");
-    expect(painted).not.toContain("3 models");
+    expect(root.renderer.getPaintedText()).not.toContain("search-combo");
   });
 
   it("loads provider quota on demand and shows failures inline", async () => {
