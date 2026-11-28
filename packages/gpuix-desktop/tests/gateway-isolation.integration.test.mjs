@@ -225,6 +225,14 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(Array.isArray(filtered.body.details)).toBe(true);
     expect(filtered.body.pagination.pageSize).toBe(5);
 
+    // The chat page posts here. An invalid key plus an unknown model cannot
+    // reach any provider, so this only proves the route answers in the runtime.
+    const chatProbe = await call("/v1/chat/completions", {
+      method: "POST",
+      body: JSON.stringify({ model: "gpuix-probe/none", messages: [], stream: false }),
+    });
+    expect([400, 401, 403, 404]).toContain(chatProbe.status);
+
     // Provider chips are fed by the distinct providers in request details.
     const usedProviders = await call("/api/usage/providers");
     expect(usedProviders.status).toBe(200);

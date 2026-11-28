@@ -518,6 +518,44 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     );
   });
 
+  it("sends a non-streaming chat message and shows the reply", async () => {
+    const api = createFakeApi([{ id: "k1", name: "laptop", key: "sk-live-1", isActive: true }]);
+    const root = mount(api);
+    await settle(root);
+
+    click(root.renderer, "nav-chat");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("openai/gpt-4o");
+
+    const typeInto = async (testId, keys) => {
+      const element = root.renderer.findByTestId(testId);
+      const bounds = root.renderer.getElementBounds(element.id);
+      root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      root.renderer.nativeSimulateKeystrokes(element.id, keys);
+      await settle(root);
+    };
+    await typeInto("chat-system", "b r i e f");
+    await typeInto("chat-input", "h e l l o");
+    click(root.renderer, "chat-send");
+    await settle(root);
+
+    expect(api.createChatCompletion).toHaveBeenCalledWith({
+      apiKey: "sk-live-1",
+      model: "openai/gpt-4o",
+      messages: [
+        { role: "system", content: "brief" },
+        { role: "user", content: "hello" },
+      ],
+    });
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("assistant");
+    expect(painted).toContain("reply from openai/gpt-4o");
+
+    click(root.renderer, "chat-clear");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("No messages yet.");
+  });
+
   it("lists media providers by kind and toggles their connections", async () => {
     const api = createFakeApi([], [
       { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },

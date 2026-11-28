@@ -7,6 +7,7 @@ import React from "react";
 import { theme } from "./theme.mjs";
 import { STATUS } from "./status-model.mjs";
 import { EndpointPage } from "./EndpointPage.mjs";
+import { ChatPage } from "./ChatPage.mjs";
 import { ProvidersPage } from "./ProvidersPage.mjs";
 import { ModelsPage } from "./ModelsPage.mjs";
 import { MediaProvidersPage } from "./MediaProvidersPage.mjs";
@@ -28,6 +29,7 @@ const h = React.createElement;
 const PAGES = [
   { id: "endpoint", label: "Endpoint & Key", enabled: true },
   { id: "status", label: "Gateway status", enabled: true },
+  { id: "chat", label: "Chat", enabled: true },
   { id: "providers", label: "Providers", enabled: true },
   { id: "models", label: "Models", enabled: true },
   { id: "media-providers", label: "Media providers", enabled: true },
@@ -113,6 +115,7 @@ export function App({ api, status, onRefresh }) {
 
   let content;
   if (page === "status") content = h(StatusPanel, { status, onRefresh });
+  else if (page === "chat") content = h(ChatPage, { api });
   else if (page === "providers") content = h(ProvidersPage, { api });
   else if (page === "models") content = h(ModelsPage, { api });
   else if (page === "media-providers") content = h(MediaProvidersPage, { api });
