@@ -22,11 +22,16 @@ export function TranslatorPage({ api }) {
   const [active, setActive] = React.useState(1);
   const [content, setContent] = React.useState(null);
   const [error, setError] = React.useState("");
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState("");
+  const [status, setStatus] = React.useState("");
 
   const step = STEPS.find((item) => item.id === active);
   const load = React.useCallback(
     (target) => {
       setError("");
+      setStatus("");
+      setEditing(false);
       setContent(null);
       api
         .getTranslatorFile(target.file)
@@ -42,6 +47,23 @@ export function TranslatorPage({ api }) {
   React.useEffect(() => {
     load(step);
   }, [load, step]);
+
+  const startEdit = () => {
+    setDraft(content || "");
+    setStatus("");
+    setEditing(true);
+  };
+
+  const save = () => {
+    setStatus("Saving...");
+    Promise.resolve(api.saveTranslatorFile(step.file, draft))
+      .then(() => {
+        setContent(draft);
+        setEditing(false);
+        setStatus("Saved.");
+      })
+      .catch((err) => setStatus(err.message));
+  };
 
   return h(
     "div",
@@ -102,21 +124,55 @@ export function TranslatorPage({ api }) {
           gap: 6,
         },
       },
-      h("text", { style: { color: theme.muted, fontSize: 11 } }, step.file),
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+        h("text", { style: { color: theme.muted, fontSize: 11, flexGrow: 1 } }, step.file),
+        editing
+          ? h(
+              "text",
+              { testId: "translator-save", role: "button", onClick: save, style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } } },
+              "Save"
+            )
+          : content !== null
+            ? h(
+                "text",
+                { testId: "translator-edit", role: "button", onClick: startEdit, style: { color: theme.muted, fontSize: 11, cursor: "pointer", hover: { color: theme.text } } },
+                "Edit"
+              )
+            : null,
+        editing
+          ? h(
+              "text",
+              { testId: "translator-cancel", role: "button", onClick: () => setEditing(false), style: { color: theme.muted, fontSize: 11, cursor: "pointer", hover: { color: theme.text } } },
+              "Cancel"
+            )
+          : null,
+        status ? h("text", { testId: "translator-status", style: { color: status === "Saved." ? theme.ok : theme.muted, fontSize: 10 } }, status) : null
+      ),
       error ? h("text", { testId: "translator-error", style: { color: theme.bad, fontSize: 11 } }, error) : null,
       content === null
         ? h("text", { testId: "translator-loading", style: { color: theme.muted, fontSize: 11 } }, "Loading...")
-        : content === ""
-          ? h("text", { testId: "translator-empty", style: { color: theme.muted, fontSize: 11 } }, "No captured content.")
-          : h(
-              "text",
-              { testId: "translator-content", style: { color: theme.text, fontSize: 10, fontFamily: "Consolas" } },
-              content.length > 8000 ? `${content.slice(0, 8000)}\n... (truncated)` : content
-            ),
+        : editing
+          ? h("input", {
+              testId: "translator-edit-input",
+              "aria-label": "File content",
+              value: draft,
+              onChange: (event) => setDraft(event.value ?? ""),
+              onSubmit: save,
+              style: { height: 26, color: theme.text, backgroundColor: theme.panelAlt, fontFamily: "Consolas" },
+            })
+          : content === ""
+            ? h("text", { testId: "translator-empty", style: { color: theme.muted, fontSize: 11 } }, "No captured content.")
+            : h(
+                "text",
+                { testId: "translator-content", style: { color: theme.text, fontSize: 10, fontFamily: "Consolas" } },
+                content.length > 8000 ? `${content.slice(0, 8000)}\n... (truncated)` : content
+              ),
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Read-only: editing, re-translating and sending stay in the dashboard."
+        "Editing saves the captured file; re-translating and sending back stay in the dashboard. The editor is single-line, so keys are easiest to edit."
       )
     )
   );

@@ -240,6 +240,10 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     });
     expect([400, 401, 403, 404]).toContain(streamProbe.status);
 
+    // Translator editor writes these files; the staged runtime ships no captured
+    // log yet (load answers 404 for a missing file), so the save round-trip is
+    // covered by the unit test instead of seeding the runtime artifact.
+
     // Quota tracker addresses one connection; an unknown id must answer 404
     // without contacting any provider.
     const quotaProbe = await call("/api/usage/gpuix-probe-missing");

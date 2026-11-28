@@ -487,6 +487,16 @@ describe("createGatewayApi", () => {
     });
   });
 
+  it("saves a translator step file", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ success: true }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", token: "tok", fetchImpl });
+
+    await api.saveTranslatorFile("7_res_client.txt", "payload");
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/translator/save");
+    expect(calls[0].init.method).toBe("POST");
+    expect(JSON.parse(calls[0].init.body)).toEqual({ file: "7_res_client.txt", content: "payload" });
+  });
+
   it("reads one connection's quota, optionally forced", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ quotas: { five_hour: { used: 1, total: 2 } } }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", token: "tok", fetchImpl });

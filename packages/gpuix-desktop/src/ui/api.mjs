@@ -267,5 +267,7 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       const body = await request(`/api/translator/load?file=${encodeURIComponent(file)}`);
       return (body && body.content) || "";
     },
+    saveTranslatorFile: (file, content) =>
+      request("/api/translator/save", { method: "POST", body: { file, content } }),
   };
 }

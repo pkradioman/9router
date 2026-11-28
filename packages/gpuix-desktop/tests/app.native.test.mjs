@@ -281,6 +281,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       hermes: null,
     })),
     getTranslatorFile: vi.fn(async (file) => `{"file":"${file}","marker":"body"}`),
+    saveTranslatorFile: vi.fn(async () => ({ success: true })),
     listProviderNodes: vi.fn(async () => nodes.map((node) => ({ ...node }))),
     createProviderNode: vi.fn(async (body) => {
       const prefix =
@@ -1515,7 +1516,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.patchSettings).toHaveBeenCalledTimes(1);
   });
 
-  it("loads translator step files read-only", async () => {
+  it("loads translator step files and saves an edit", async () => {
     const api = createFakeApi();
     const root = mount(api);
     await settle(root);
@@ -1526,6 +1527,19 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("1_req_client.json");
     expect(api.getTranslatorFile).toHaveBeenCalledWith("1_req_client.json");
     expect(painted).toContain("marker");
+
+    click(root.renderer, "translator-edit");
+    await settle(root);
+    const editInput = root.renderer.findByTestId("translator-edit-input");
+    const editBounds = root.renderer.getElementBounds(editInput.id);
+    root.renderer.nativeSimulateClick(editBounds.x + editBounds.width - 8, editBounds.y + editBounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(editInput.id, "x");
+    await settle(root);
+    click(root.renderer, "translator-save");
+    await settle(root);
+    expect(api.saveTranslatorFile).toHaveBeenCalledWith("1_req_client.json", '{"file":"1_req_client.json","marker":"body"}x');
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Saved.");
 
     click(root.renderer, "translator-step-5");
     await settle(root);
