@@ -291,6 +291,10 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
           provider: "openai",
           status: 200,
           timestamp: "2026-11-28T02:00:00.000Z",
+          tokens: { prompt_tokens: 1200, completion_tokens: 340, cached_tokens: 800, cache_creation_input_tokens: 64 },
+          latency: { ttft: 210, total: 940 },
+          cost: 0.0042,
+          connectionId: "p1",
         },
       ],
       pagination: { page, pageSize, totalItems: 21, totalPages: 2, hasNext: page < 2, hasPrev: page > 1 },
@@ -1435,7 +1439,21 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     let painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("gpt-4o");
     expect(painted).toContain("page 1 / 2");
+    expect(painted).toContain("1.2K in");
+    expect(painted).toContain("800 cached");
+    expect(painted).toContain("340 out");
+    expect(painted).toContain("940 ms");
     expect(api.getRequestDetails).toHaveBeenCalledWith(1, 20, { provider: "", model: "", status: "", startDate: "", endDate: "" });
+
+    click(root.renderer, "request-log-row-0-summary");
+    await settle(root);
+    let detail = root.renderer.getPaintedText().join("\n");
+    expect(detail).toContain("TTFT 210 ms · total 940 ms");
+    expect(detail).toContain("cache creation 64 tok · cost $0.0042");
+    expect(detail).toContain("connection p1");
+    click(root.renderer, "request-log-row-0-summary");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).not.toContain("TTFT 210 ms");
 
     click(root.renderer, "request-log-next");
     await settle(root);

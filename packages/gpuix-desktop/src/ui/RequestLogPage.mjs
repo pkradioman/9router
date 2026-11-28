@@ -8,6 +8,28 @@ import { theme } from "./theme.mjs";
 const h = React.createElement;
 const PAGE_SIZE = 20;
 
+// Same token fields as the dashboard (tokenDisplay.js): OpenAI and Claude names.
+export function inputTokens(tokens) {
+  const prompt = (tokens && (tokens.prompt_tokens || tokens.input_tokens)) || 0;
+  const cache = cachedTokens(tokens);
+  return prompt < cache ? cache : prompt;
+}
+export function cachedTokens(tokens) {
+  return (tokens && (tokens.cached_tokens || tokens.cache_read_input_tokens)) || 0;
+}
+export function cacheCreationTokens(tokens) {
+  return (tokens && tokens.cache_creation_input_tokens) || 0;
+}
+export function outputTokens(tokens) {
+  return (tokens && (tokens.completion_tokens || tokens.output_tokens)) || 0;
+}
+function compact(n) {
+  const num = Number(n) || 0;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(1)}K`;
+  return String(num);
+}
+
 export function RequestLogPage({ api }) {
   const [page, setPage] = React.useState(1);
   const [result, setResult] = React.useState(null);
@@ -15,6 +37,7 @@ export function RequestLogPage({ api }) {
   const [drafts, setDrafts] = React.useState({ provider: "", model: "", status: "", startDate: "", endDate: "" });
   const [filters, setFilters] = React.useState({ provider: "", model: "", status: "", startDate: "", endDate: "" });
   const [providers, setProviders] = React.useState([]);
+  const [openRow, setOpenRow] = React.useState(-1);
 
   React.useEffect(() => {
     api
@@ -223,36 +246,74 @@ export function RequestLogPage({ api }) {
         ? h("text", { testId: "request-log-loading", style: { color: theme.muted, fontSize: 11 } }, "Loading...")
         : details.length === 0
           ? h("text", { testId: "request-log-empty", style: { color: theme.muted, fontSize: 11 } }, "No recorded requests.")
-          : details.map((item, index) =>
-              h(
+          : details.map((item, index) => {
+              const tokens = item.tokens || {};
+              const latency = item.latency || {};
+              const open = openRow === index;
+              const ok = item.status === 200 || item.status === "200" || item.status === "ok";
+              return h(
                 "div",
                 {
                   key: item.id || index,
                   testId: `request-log-row-${index}`,
                   style: {
                     display: "flex",
-                    flexDirection: "row",
-                    gap: 10,
-                    paddingTop: 4,
-                    paddingBottom: 4,
+                    flexDirection: "column",
                     borderTopWidth: index === 0 ? 0 : 1,
                     borderColor: theme.border,
                   },
                 },
-                h("text", { style: { color: theme.text, fontSize: 11, width: 150 } }, item.model || "unknown"),
-                h("text", { style: { color: theme.muted, fontSize: 11, flexGrow: 1 } }, item.provider || ""),
                 h(
-                  "text",
-                  { style: { color: theme.muted, fontSize: 11, width: 90 } },
-                  item.status === 200 || item.status === "200" || item.status === "ok" ? "ok" : String(item.status ?? "")
+                  "div",
+                  {
+                    testId: `request-log-row-${index}-summary`,
+                    role: "button",
+                    onClick: () => setOpenRow(open ? -1 : index),
+                    style: { display: "flex", flexDirection: "row", gap: 10, alignItems: "center", paddingTop: 4, paddingBottom: 4, cursor: "pointer" },
+                  },
+                  h(
+                    "text",
+                    { style: { color: theme.muted, fontSize: 10, width: 130 } },
+                    String(item.timestamp || "").replace("T", " ").slice(0, 19)
+                  ),
+                  h("text", { style: { color: theme.text, fontSize: 11, width: 170 } }, item.model || "unknown"),
+                  h("text", { style: { color: theme.muted, fontSize: 11, flexGrow: 1 } }, item.provider || ""),
+                  h("text", { style: { color: theme.muted, fontSize: 10, width: 74 } }, `${compact(inputTokens(tokens))} in`),
+                  h("text", { style: { color: theme.muted, fontSize: 10, width: 84 } }, `${compact(cachedTokens(tokens))} cached`),
+                  h("text", { style: { color: theme.muted, fontSize: 10, width: 74 } }, `${compact(outputTokens(tokens))} out`),
+                  h("text", { style: { color: theme.muted, fontSize: 10, width: 74 } }, `${latency.total || 0} ms`),
+                  h(
+                    "text",
+                    { style: { color: ok ? theme.muted : theme.bad, fontSize: 10, width: 70 } },
+                    ok ? "ok" : String(item.status ?? "")
+                  )
                 ),
-                h(
-                  "text",
-                  { style: { color: theme.muted, fontSize: 10, width: 190 } },
-                  String(item.timestamp || "").replace("T", " ").slice(0, 19)
-                )
-              )
-            )
+                open
+                  ? h(
+                      "div",
+                      {
+                        testId: `request-log-detail-${index}`,
+                        style: { display: "flex", flexDirection: "column", paddingLeft: 12, paddingBottom: 6, gap: 2 },
+                      },
+                      h(
+                        "text",
+                        { style: { color: theme.muted, fontSize: 10 } },
+                        `TTFT ${latency.ttft || 0} ms · total ${latency.total || 0} ms`
+                      ),
+                      h(
+                        "text",
+                        { style: { color: theme.muted, fontSize: 10 } },
+                        `cache creation ${cacheCreationTokens(tokens)} tok · cost $${Number(item.cost || 0).toFixed(4)}`
+                      ),
+                      h(
+                        "text",
+                        { style: { color: theme.muted, fontSize: 10 } },
+                        `connection ${item.connectionId || "—"}`
+                      )
+                    )
+                  : null
+              );
+            })
     ),
     h(
       "div",
