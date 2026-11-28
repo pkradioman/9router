@@ -38,6 +38,10 @@ function status(overrides = {}) {
 // and has no close call, so creating a root per test left a window (and its
 // GPU context) open until the process exited. Re-render with a new key so the
 // previous tree unmounts instead.
+// The native test window ignores the requested size and stretches to the primary
+// display (measured 1536x864 at 125% DPI on this machine), so layout assertions
+// must not assume this width; wrap the page in a sized frame to test a narrower
+// viewport.
 let sharedRoot = null;
 let mountKey = 0;
 function mount(api) {
@@ -680,6 +684,11 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("Local Emb");
     expect(painted).toContain("custom embedding node");
     expect(painted).toContain("No connections");
+    click(root.renderer, "media-node-delete-custom-embedding-1");
+    await settle(root);
+    expect(api.deleteProviderNode).toHaveBeenCalledWith("custom-embedding-1");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).not.toContain("Local Emb");
 
     click(root.renderer, "media-kind-image");
     await settle(root);

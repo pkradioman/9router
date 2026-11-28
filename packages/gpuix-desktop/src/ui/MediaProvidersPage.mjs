@@ -112,6 +112,15 @@ export function MediaProvidersPage({ api, status }) {
     load();
   }, [load]);
 
+  const deleteNode = (id) => {
+    setBusy(true);
+    setError("");
+    Promise.resolve(api.deleteProviderNode(id))
+      .then(load)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
   const toggleProvider = (providerId) => {
     const conns = (connections || []).filter((conn) => conn.provider === providerId);
     if (conns.length === 0) return;
@@ -148,7 +157,9 @@ export function MediaProvidersPage({ api, status }) {
     kind === "embedding"
       ? nodes.map((node) => ({ id: node.id, name: node.name, kinds: ["embedding"], noAuth: false, custom: true }))
       : [];
-  const entries = [...base, ...custom];
+  // Custom embedding nodes come first so their controls stay reachable without
+  // scrolling past the long registry list.
+  const entries = [...custom, ...base];
 
   const chip = (testId, label, onClick, active, count) =>
     h(
@@ -190,7 +201,7 @@ export function MediaProvidersPage({ api, status }) {
       ),
       chip("media-refresh", "Refresh", load, false)
     ),
-    // Fixed rows of five: GPUIX rows do not wrap, so the chips are chunked.
+    // Fixed rows of five keep the kind chips stable at any window width.
     h(
       "div",
       { style: { display: "flex", flexDirection: "column", gap: 8 } },
@@ -322,6 +333,23 @@ export function MediaProvidersPage({ api, status }) {
                           },
                         },
                         `${open ? "Hide" : "Models"} (${providerModels.length})`
+                      )
+                    : null,
+                  entry.custom
+                    ? h(
+                        "text",
+                        {
+                          testId: `media-node-delete-${entry.id}`,
+                          role: "button",
+                          onClick: busy ? null : () => deleteNode(entry.id),
+                          style: {
+                            color: theme.bad,
+                            fontSize: 10,
+                            cursor: busy ? "default" : "pointer",
+                            hover: busy ? {} : { color: theme.text },
+                          },
+                        },
+                        "Delete"
                       )
                     : null,
                   conns.length > 0
