@@ -245,6 +245,20 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect((await call("/api/settings")).body.providerStrategies.openai.stickyRoundRobinLimit).toBe(2);
     expect((await call("/api/settings", { method: "PATCH", body: JSON.stringify({ providerStrategies: {} }) })).status).toBe(200);
 
+    // Pricing overrides: store a synthetic model rate, read it back merged into
+    // the built-in table, then reset that model to the built-in rate.
+    const priceSave = await call("/api/pricing", {
+      method: "PATCH",
+      body: JSON.stringify({ "gpuix-probe": { "probe-model": { input: 1.5, output: 4.5, cached: 0.75 } } }),
+    });
+    expect(priceSave.status).toBe(200);
+    const priceMerged = await call("/api/pricing");
+    expect(priceMerged.status).toBe(200);
+    expect(priceMerged.body["gpuix-probe"]["probe-model"]).toEqual({ input: 1.5, output: 4.5, cached: 0.75 });
+    const priceReset = await call("/api/pricing?provider=gpuix-probe&model=probe-model", { method: "DELETE" });
+    expect(priceReset.status).toBe(200);
+    expect((await call("/api/pricing")).body["gpuix-probe"]?.["probe-model"]).toBeUndefined();
+
     // Combo presets preview is read-only and does not touch providers for the
     // "claude" source.
     const presets = await call("/api/combos/presets?source=claude");

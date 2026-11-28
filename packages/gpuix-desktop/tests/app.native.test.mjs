@@ -40,6 +40,13 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
   let combos = comboSeed.map((item) => ({ ...item }));
   let pools = poolSeed.map((item) => ({ ...item }));
   let nodes = [];
+  let fakePricing = {
+    openai: {
+      "gpt-4o": { input: 2.5, output: 10, cached: 1.25 },
+      "gpt-4o-mini": { input: 0.15, output: 0.6 },
+    },
+    anthropic: { "claude-sonnet": { input: 3, output: 15 } },
+  };
   let fakeSettings = {
     cavemanEnabled: false,
     cavemanLevel: "full",
@@ -167,6 +174,23 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       version: "0.9.1",
       url: "http://127.0.0.1:5757",
     })),
+    getPricing: vi.fn(async () => JSON.parse(JSON.stringify(fakePricing))),
+    patchPricing: vi.fn(async (payload) => {
+      for (const [provider, models] of Object.entries(payload)) {
+        fakePricing[provider] = { ...(fakePricing[provider] || {}) };
+        for (const [model, entry] of Object.entries(models)) fakePricing[provider][model] = { ...entry };
+      }
+      return fakePricing;
+    }),
+    resetPricing: vi.fn(async (provider = null, model = null) => {
+      if (!provider) fakePricing = {};
+      else if (!model) delete fakePricing[provider];
+      else if (fakePricing[provider]) {
+        delete fakePricing[provider][model];
+        if (Object.keys(fakePricing[provider]).length === 0) delete fakePricing[provider];
+      }
+      return fakePricing;
+    }),
     listProxyPools: vi.fn(async () => pools.map((item) => ({ ...item }))),
     createProxyPool: vi.fn(async (pool) => {
       const created = { id: `pp${pools.length + 1}`, isActive: true, type: "http", ...pool };
@@ -437,6 +461,53 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "provider-strategy-openai-global");
     await settle(root);
     expect(api.patchSettings).toHaveBeenLastCalledWith({ providerStrategies: {} });
+  });
+
+  it("edits one model's pricing and resets it", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 720 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-pricing");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("anthropic");
+    expect(painted).toContain("claude-sonnet");
+    expect(painted).toContain("input 3 · output 15");
+
+    click(root.renderer, "pricing-provider-openai");
+    await settle(root);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("gpt-4o");
+    expect(painted).toContain("input 2.5 · output 10 · cached 1.25");
+    expect(painted).not.toContain("claude-sonnet");
+
+    click(root.renderer, "pricing-edit-gpt-4o");
+    await settle(root);
+    expect(root.renderer.findByTestId("pricing-input-gpt-4o")).toBeTruthy();
+    expect(root.renderer.findByTestId("pricing-cache_creation-gpt-4o")).toBeTruthy();
+
+    click(root.renderer, "pricing-save-gpt-4o");
+    await settle(root);
+    expect(api.patchPricing).toHaveBeenCalledWith({
+      openai: { "gpt-4o": { input: 2.5, output: 10, cached: 1.25 } },
+    });
+
+    click(root.renderer, "pricing-reset-gpt-4o");
+    await settle(root);
+    expect(api.resetPricing).toHaveBeenLastCalledWith("openai", "gpt-4o");
+
+    click(root.renderer, "pricing-reset-all");
+    await settle(root);
+    expect(api.resetPricing).toHaveBeenCalledTimes(1);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Confirm reset all");
+
+    click(root.renderer, "pricing-reset-all");
+    await settle(root);
+    expect(api.resetPricing).toHaveBeenCalledTimes(2);
+    expect(api.resetPricing).toHaveBeenLastCalledWith();
   });
 
   it("tests provider connections and shows the result", async () => {

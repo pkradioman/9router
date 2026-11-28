@@ -120,6 +120,14 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     patchSettings: (patch) => request("/api/settings", { method: "PATCH", body: patch }),
     testProxyUrl: (proxyUrl) =>
       request("/api/settings/proxy-test", { method: "POST", body: { proxyUrl } }),
+    getPricing: () => request("/api/pricing"),
+    patchPricing: (pricing) => request("/api/pricing", { method: "PATCH", body: pricing }),
+    resetPricing: (provider = null, model = null) => {
+      const parts = [];
+      if (provider) parts.push(`provider=${encodeURIComponent(provider)}`);
+      if (provider && model) parts.push(`model=${encodeURIComponent(model)}`);
+      return request(`/api/pricing${parts.length ? `?${parts.join("&")}` : ""}`, { method: "DELETE" });
+    },
     getTokenSaverStats: (period) => request(`/api/token-saver/stats?period=${encodeURIComponent(period)}`),
     getHeadroomStatus: () => request("/api/headroom/status"),
     listProxyPools: async (includeUsage = false) => {

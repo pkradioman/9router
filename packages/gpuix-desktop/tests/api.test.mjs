@@ -342,6 +342,38 @@ describe("createGatewayApi", () => {
     expect(JSON.parse(calls[0].init.body)).toEqual({ name: "mix", models: ["openai/gpt-4o"] });
   });
 
+  it("reads and writes pricing overrides", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ openai: { "gpt-4o": { input: 2.5, output: 10 } } }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getPricing()).toEqual({ openai: { "gpt-4o": { input: 2.5, output: 10 } } });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/pricing");
+
+    await api.patchPricing({ openai: { "gpt-4o": { input: 3, output: 12, cached: 1.5 } } });
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/pricing");
+    expect(calls[1].init.method).toBe("PATCH");
+    expect(JSON.parse(calls[1].init.body)).toEqual({
+      openai: { "gpt-4o": { input: 3, output: 12, cached: 1.5 } },
+    });
+  });
+
+  it("resets one model, one provider, or all pricing", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({}));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await api.resetPricing();
+    await api.resetPricing("open ai");
+    await api.resetPricing("open ai", "gpt-4o mini");
+
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/pricing");
+    expect(calls[0].init.method).toBe("DELETE");
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/pricing?provider=open%20ai");
+    expect(calls[2].url).toBe(
+      "http://127.0.0.1:20129/api/pricing?provider=open%20ai&model=gpt-4o%20mini"
+    );
+    expect(calls[2].init.method).toBe("DELETE");
+  });
+
   it("surfaces the gateway error message and status", async () => {
     const { fetchImpl } = fakeFetch(() => json({ error: "Unauthorized" }, 401));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

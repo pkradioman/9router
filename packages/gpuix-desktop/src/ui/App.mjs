@@ -19,6 +19,7 @@ import { SkillsPage } from "./SkillsPage.mjs";
 import { ProfilePage } from "./ProfilePage.mjs";
 import { TranslatorPage } from "./TranslatorPage.mjs";
 import { RequestLogPage } from "./RequestLogPage.mjs";
+import { PricingPage } from "./PricingPage.mjs";
 import { StatusPanel } from "./StatusPanel.mjs";
 
 const h = React.createElement;
@@ -38,6 +39,7 @@ const PAGES = [
   { id: "console-log", label: "Console Log", enabled: true },
   { id: "proxy-pools", label: "Proxy Pools", enabled: true },
   { id: "skills", label: "Skills", enabled: true },
+  { id: "pricing", label: "Pricing", enabled: true },
   { id: "profile", label: "Profile & settings", enabled: true },
 ];
 
@@ -118,6 +120,7 @@ export function App({ api, status, onRefresh }) {
   else if (page === "proxy-pools") content = h(ProxyPoolsPage, { api });
   else if (page === "cli-tools") content = h(CliToolsPage, { api });
   else if (page === "skills") content = h(SkillsPage);
+  else if (page === "pricing") content = h(PricingPage, { api });
   else if (page === "profile") content = h(ProfilePage, { api, status });
   else if (page === "translator") content = h(TranslatorPage, { api });
   else if (page === "request-log") content = h(RequestLogPage, { api });
