@@ -64,6 +64,19 @@ export function UsagePage({ api }) {
 
   const totalTokens = stats ? (stats.totalPromptTokens || 0) + (stats.totalCompletionTokens || 0) : 0;
   const rows = stats ? providerRows(stats) : [];
+  // The aggregate keys models as "model (provider)"; sort by cost, then tokens.
+  const modelRows = stats
+    ? Object.entries(stats.byModel || {})
+        .map(([key, entry]) => ({
+          key,
+          tokens: (entry.promptTokens || 0) + (entry.completionTokens || 0),
+          requests: entry.requests || 0,
+          cost: entry.cost || 0,
+        }))
+        .filter((row) => row.requests > 0)
+        .sort((a, b) => b.cost - a.cost || b.tokens - a.tokens)
+        .slice(0, 8)
+    : [];
   const recent = (stats && stats.recentRequests) || [];
 
   return h(
@@ -132,9 +145,31 @@ export function UsagePage({ api }) {
               { style: { display: "flex", flexDirection: "row", gap: 28, flexWrap: "wrap" } },
               h(Stat, { label: "Requests", value: String(stats.totalRequests || 0), testId: "usage-requests" }),
               h(Stat, { label: "Tokens", value: String(totalTokens), testId: "usage-tokens" }),
+              h(Stat, { label: "Cached", value: String(stats.totalCachedTokens || 0), testId: "usage-cached" }),
               h(Stat, { label: "Cost", value: `$${Number(stats.totalCost || 0).toFixed(4)}`, testId: "usage-cost" })
             )
           : null,
+      modelRows.length
+        ? h(
+            "div",
+            { testId: "usage-models", style: { display: "flex", flexDirection: "column" } },
+            h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600, paddingBottom: 4 } }, "Top models"),
+            ...modelRows.map((row) =>
+              h(
+                "div",
+                {
+                  key: row.key,
+                  testId: `usage-model-${row.key}`,
+                  style: { display: "flex", flexDirection: "row", gap: 12, paddingTop: 5, paddingBottom: 5, borderTopWidth: 1, borderColor: theme.border },
+                },
+                h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, row.key),
+                h("text", { style: { color: theme.muted, fontSize: 10, width: 70 } }, `${row.requests} req`),
+                h("text", { style: { color: theme.muted, fontSize: 10, width: 90 } }, `${row.tokens} tok`),
+                h("text", { style: { color: theme.muted, fontSize: 10, width: 80 } }, `$${Number(row.cost).toFixed(4)}`)
+              )
+            )
+          )
+        : null,
       rows.length
         ? h(
             "div",

@@ -146,7 +146,12 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       totalPromptTokens: 1000,
       totalCompletionTokens: 200,
       totalCost: 0.1234,
+      totalCachedTokens: 400,
       byProvider: { openai: { requests: 40, promptTokens: 900, completionTokens: 180, cost: 0.11 } },
+      byModel: {
+        "gpt-4o (openai)": { requests: 30, promptTokens: 700, completionTokens: 140, cost: 0.09 },
+        "claude-sonnet (anthropic)": { requests: 12, promptTokens: 300, completionTokens: 40, cost: 0.03 },
+      },
       recentRequests: [
         { timestamp: "2026-11-28T01:00:00Z", model: "gpt-4o", provider: "openai", promptTokens: 10, completionTokens: 5 },
       ],
@@ -930,6 +935,11 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("openai");
     expect(painted).toContain("Tokens by bucket");
     expect(painted).toContain("120 tok");
+    expect(painted).toContain("Cached");
+    expect(painted).toContain("400");
+    expect(painted).toContain("Top models");
+    expect(painted).toContain("gpt-4o (openai)");
+    expect(painted).toContain("claude-sonnet (anthropic)");
     expect(api.getUsageStats).toHaveBeenCalledWith("7d");
     expect(api.getUsageChart).toHaveBeenCalledWith("7d");
 
