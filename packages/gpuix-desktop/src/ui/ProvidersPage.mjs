@@ -316,6 +316,8 @@ export function ProvidersPage({ api }) {
   const [nodeName, setNodeName] = React.useState("");
   const [nodePrefix, setNodePrefix] = React.useState("");
   const [nodeBaseUrl, setNodeBaseUrl] = React.useState("");
+  const [nodeType, setNodeType] = React.useState("openai-compatible");
+  const [nodeApiType, setNodeApiType] = React.useState("chat");
   const [nodesOpen, setNodesOpen] = React.useState(false);
 
   const load = React.useCallback(() => {
@@ -429,15 +431,17 @@ export function ProvidersPage({ api }) {
       setError("Node needs a name, a prefix and a base URL.");
       return;
     }
+    const payload = {
+      name: nodeName.trim(),
+      prefix: nodePrefix.trim(),
+      baseUrl: nodeBaseUrl.trim(),
+      type: nodeType,
+    };
+    if (nodeType === "openai-compatible") payload.apiType = nodeApiType;
     setBusy(true);
     setError("");
     api
-      .createProviderNode({
-        name: nodeName.trim(),
-        prefix: nodePrefix.trim(),
-        baseUrl: nodeBaseUrl.trim(),
-        apiType: "chat",
-      })
+      .createProviderNode(payload)
       .then(() => {
         setNodeName("");
         setNodePrefix("");
@@ -635,6 +639,59 @@ export function ProvidersPage({ api }) {
       h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Custom provider nodes"),
       h(
         "div",
+        { style: { display: "flex", flexDirection: "row", gap: 14, alignItems: "center", flexWrap: "wrap" } },
+        ...[
+          ["openai-compatible", "OpenAI compatible"],
+          ["anthropic-compatible", "Anthropic compatible"],
+          ["custom-embedding", "Embedding"],
+        ].map(([id, label]) =>
+          h(
+            "text",
+            {
+              key: id,
+              testId: `node-type-${id}`,
+              role: "button",
+              onClick: busy ? null : () => setNodeType(id),
+              style: {
+                color: nodeType === id ? theme.ok : theme.muted,
+                fontSize: 10,
+                cursor: busy ? "default" : "pointer",
+                hover: busy ? {} : { color: theme.text },
+              },
+            },
+            label
+          )
+        ),
+        nodeType === "openai-compatible"
+          ? h(
+              "div",
+              { style: { display: "flex", flexDirection: "row", gap: 12, alignItems: "center" } },
+              ...[
+                ["chat", "api chat"],
+                ["responses", "api responses"],
+              ].map(([id, label]) =>
+                h(
+                  "text",
+                  {
+                    key: id,
+                    testId: `node-apitype-${id}`,
+                    role: "button",
+                    onClick: busy ? null : () => setNodeApiType(id),
+                    style: {
+                      color: nodeApiType === id ? theme.ok : theme.muted,
+                      fontSize: 10,
+                      cursor: busy ? "default" : "pointer",
+                      hover: busy ? {} : { color: theme.text },
+                    },
+                  },
+                  label
+                )
+              )
+            )
+          : null
+      ),
+      h(
+        "div",
         { style: { display: "flex", flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" } },
         field({
           testId: "node-name-input",
@@ -694,7 +751,7 @@ export function ProvidersPage({ api }) {
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Chat-type OpenAI-compatible nodes only; responses routing and per-node options are not native yet."
+        "Creates OpenAI-compatible (chat/responses), Anthropic-compatible or custom-embedding nodes; per-node options stay on the dashboard."
       )
     ) : null,
     h(

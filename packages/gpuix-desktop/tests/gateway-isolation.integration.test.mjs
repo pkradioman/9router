@@ -382,6 +382,20 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(updatedNode.body.node.prefix).toBe("gpuixn2");
     expect((await call(`/api/provider-nodes/${encodeURIComponent(nodeId)}`, { method: "DELETE" })).status).toBe(200);
 
+    // Node types the native add form can now send: responses, Anthropic
+    // compatible and custom embedding. All land in the isolated DB and delete.
+    for (const body of [
+      { name: "gpuix-resp", prefix: "gpuixr", baseUrl: "http://127.0.0.1:9/v1", type: "openai-compatible", apiType: "responses" },
+      { name: "gpuix-anth", prefix: "gpuixa", baseUrl: "http://127.0.0.1:9/v1", type: "anthropic-compatible" },
+      { name: "gpuix-emb", prefix: "gpuixe", baseUrl: "http://127.0.0.1:9/v1", type: "custom-embedding" },
+    ]) {
+      const created = await call("/api/provider-nodes", { method: "POST", body: JSON.stringify(body) });
+      expect(created.status).toBe(201);
+      expect(created.body.node.type).toBe(body.type);
+      if (body.apiType) expect(created.body.node.apiType).toBe(body.apiType);
+      expect((await call(`/api/provider-nodes/${encodeURIComponent(created.body.node.id)}`, { method: "DELETE" })).status).toBe(200);
+    }
+
     // Dashboard password: hashed by the gateway and written to the isolated DB.
     // This runs last because a fresh isolated DB has no prior password to restore;
     // the fixture directory is disposable.

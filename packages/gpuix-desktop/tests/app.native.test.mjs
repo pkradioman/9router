@@ -233,7 +233,13 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     getTranslatorFile: vi.fn(async (file) => `{"file":"${file}","marker":"body"}`),
     listProviderNodes: vi.fn(async () => nodes.map((node) => ({ ...node }))),
     createProviderNode: vi.fn(async (body) => {
-      const created = { id: `openai-compatible-chat-${nodes.length + 1}`, apiType: "chat", ...body };
+      const prefix =
+        body.type === "anthropic-compatible"
+          ? "anthropic-compatible"
+          : body.type === "custom-embedding"
+            ? "custom-embedding"
+            : `openai-compatible-${body.apiType || "chat"}`;
+      const created = { id: `${prefix}-${nodes.length + 1}`, apiType: "chat", ...body };
       nodes = [created, ...nodes];
       return { node: created };
     }),
@@ -997,7 +1003,13 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     await settle(root);
 
     expect(api.createProviderNode).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Local", prefix: "loc", baseUrl: "http://127.0.0.1:8080/v1", apiType: "chat" })
+      expect.objectContaining({
+        name: "Local",
+        prefix: "loc",
+        baseUrl: "http://127.0.0.1:8080/v1",
+        type: "openai-compatible",
+        apiType: "chat",
+      })
     );
     const painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("Local");
@@ -1019,6 +1031,54 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     await settle(root);
     expect(api.deleteProviderNode).toHaveBeenCalledWith("openai-compatible-chat-1");
     expect(root.renderer.getPaintedText().join("\n")).toContain("No custom nodes yet.");
+  });
+
+  it("creates anthropic-compatible and embedding nodes", async () => {
+    const api = createFakeApi();
+    const root = createTestRoot({ width: 1080, height: 1200 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    click(root.renderer, "nodes-open");
+    await settle(root);
+
+    const typeInto = async (testId, keys) => {
+      const element = root.renderer.findByTestId(testId);
+      const bounds = root.renderer.getElementBounds(element.id);
+      root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      root.renderer.nativeSimulateKeystrokes(element.id, keys);
+      await settle(root);
+    };
+
+    click(root.renderer, "node-type-anthropic-compatible");
+    await settle(root);
+    await typeInto("node-name-input", "C l a u d e");
+    await typeInto("node-prefix-input", "c c");
+    await typeInto("node-url-input", "h t t p s : / / p r o x y . t e s t / v 1");
+    click(root.renderer, "node-create");
+    await settle(root);
+    expect(api.createProviderNode).toHaveBeenLastCalledWith({
+      name: "Claude",
+      prefix: "cc",
+      baseUrl: "https://proxy.test/v1",
+      type: "anthropic-compatible",
+    });
+
+    click(root.renderer, "node-type-custom-embedding");
+    await settle(root);
+    await typeInto("node-name-input", "E m b");
+    await typeInto("node-prefix-input", "e m b");
+    await typeInto("node-url-input", "h t t p s : / / e m b . t e s t / v 1");
+    click(root.renderer, "node-create");
+    await settle(root);
+    expect(api.createProviderNode).toHaveBeenLastCalledWith({
+      name: "Emb",
+      prefix: "emb",
+      baseUrl: "https://emb.test/v1",
+      type: "custom-embedding",
+    });
   });
 
   it("shows the agent skills list with raw URLs", async () => {
