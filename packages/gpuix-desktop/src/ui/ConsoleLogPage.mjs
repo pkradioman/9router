@@ -10,6 +10,22 @@ const h = React.createElement;
 const MAX_LINES = 400;
 const POLL_MS = 3000;
 
+// Same level tags as the dashboard console; the first [TAG] on the line decides
+// the colour, untagged lines read as LOG.
+export const LEVEL_COLORS = {
+  LOG: "#3ecf8e",
+  INFO: "#5aa9ff",
+  WARN: "#f0b429",
+  ERROR: "#f16c6c",
+  DEBUG: "#b58cff",
+};
+
+export function levelColor(line) {
+  const match = String(line ?? "").match(/\[(\w+)\]/);
+  const tag = match ? match[1].toUpperCase() : "LOG";
+  return LEVEL_COLORS[tag] || LEVEL_COLORS.LOG;
+}
+
 export function ConsoleLogPage({ api }) {
   const [lines, setLines] = React.useState(null);
   const [error, setError] = React.useState("");
@@ -107,7 +123,7 @@ export function ConsoleLogPage({ api }) {
           : lines.map((line, index) =>
               h(
                 "text",
-                { key: index, style: { color: theme.text, fontSize: 10, fontFamily: "Consolas" } },
+                { key: index, style: { color: levelColor(line), fontSize: 10, fontFamily: "Consolas" } },
                 String(line)
               )
             )
