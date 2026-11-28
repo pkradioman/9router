@@ -46,6 +46,7 @@ export function MediaProvidersPage({ api, status }) {
   const [customModels, setCustomModels] = React.useState([]);
   const [combos, setCombos] = React.useState([]);
   const [disabled, setDisabled] = React.useState({});
+  const [modelTests, setModelTests] = React.useState({});
   const [openProvider, setOpenProvider] = React.useState("");
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -82,6 +83,22 @@ export function MediaProvidersPage({ api, status }) {
       .then((map) => setDisabled(map || {}))
       .catch(() => {});
   }, [api]);
+
+  // One real request with the provider account, same as the dashboard's
+  // per-model Test button on a media card.
+  const testModel = (entry, modelId) => {
+    const key = `${entry.id}/${modelId}`;
+    setModelTests((map) => ({ ...map, [key]: "Testing..." }));
+    api
+      .testModel(`${entry.alias}/${modelId}`, kind)
+      .then((body) =>
+        setModelTests((map) => ({
+          ...map,
+          [key]: body && body.ok ? "Test passed" : `Test failed: ${(body && body.error) || "no details"}`,
+        }))
+      )
+      .catch((err) => setModelTests((map) => ({ ...map, [key]: `Test failed: ${err.message}` })));
+  };
 
   const toggleModel = (entry, modelId, isDisabled) => {
     if (isDisabled) {
@@ -337,6 +354,29 @@ export function MediaProvidersPage({ api, status }) {
                             model.model
                           ),
                           h("text", { style: { color: theme.muted, fontSize: 10, flexGrow: 1 } }, model.name),
+                          h(
+                            "text",
+                            {
+                              testId: `media-model-test-${entry.id}-${model.model}`,
+                              role: "button",
+                              onClick: busy ? null : () => testModel(entry, model.model),
+                              style: { color: theme.muted, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                            },
+                            "Test"
+                          ),
+                          modelTests[`${entry.id}/${model.model}`]
+                            ? h(
+                                "text",
+                                {
+                                  testId: `media-model-test-result-${entry.id}-${model.model}`,
+                                  style: {
+                                    color: modelTests[`${entry.id}/${model.model}`] === "Test passed" ? theme.ok : theme.bad,
+                                    fontSize: 10,
+                                  },
+                                },
+                                modelTests[`${entry.id}/${model.model}`]
+                              )
+                            : null,
                           h(
                             "text",
                             {

@@ -623,6 +623,11 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("gpt-image-x (custom)");
     expect(painted).toContain("Disabled");
 
+    click(root.renderer, "media-model-test-openai-dall-e-3");
+    await settle(root);
+    expect(api.testModel).toHaveBeenCalledWith("openai/dall-e-3", "image");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Test passed");
+
     click(root.renderer, "media-model-toggle-openai-dall-e-3");
     await settle(root);
     expect(api.enableModel).toHaveBeenCalledWith("openai", "dall-e-3");
