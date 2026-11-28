@@ -58,6 +58,7 @@ function percent(row) {
 export function QuotaPage({ api }) {
   const [connections, setConnections] = React.useState(null);
   const [states, setStates] = React.useState({});
+  const [providerFilter, setProviderFilter] = React.useState("");
   const [error, setError] = React.useState("");
 
   const load = React.useCallback(() => {
@@ -84,6 +85,8 @@ export function QuotaPage({ api }) {
   };
 
   const loaded = Object.keys(states);
+  const providerIds = [...new Set((connections || []).map((connection) => connection.provider).filter(Boolean))].sort();
+  const visible = (connections || []).filter((connection) => !providerFilter || connection.provider === providerFilter);
 
   return h(
     "div",
@@ -127,6 +130,36 @@ export function QuotaPage({ api }) {
       )
     ),
     error ? h("text", { testId: "quota-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
+    providerIds.length > 1
+      ? h(
+          "div",
+          { style: { display: "flex", flexDirection: "row", gap: 12, alignItems: "center" } },
+          h("text", { style: { color: theme.muted, fontSize: 10 } }, "Provider:"),
+          h(
+            "text",
+            {
+              testId: "quota-provider-all",
+              role: "button",
+              onClick: () => setProviderFilter(""),
+              style: { color: providerFilter ? theme.muted : theme.ok, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
+            },
+            "All"
+          ),
+          ...providerIds.map((id) =>
+            h(
+              "text",
+              {
+                key: id,
+                testId: `quota-provider-${id}`,
+                role: "button",
+                onClick: () => setProviderFilter(id),
+                style: { color: providerFilter === id ? theme.ok : theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
+              },
+              id
+            )
+          )
+        )
+      : null,
     h(
       "div",
       {
@@ -148,7 +181,9 @@ export function QuotaPage({ api }) {
         ? h("text", { testId: "quota-loading", style: { color: theme.muted, fontSize: 11 } }, "Loading connections...")
         : connections.length === 0
           ? h("text", { testId: "quota-empty", style: { color: theme.muted, fontSize: 11 } }, "No connections to track.")
-          : connections.map((connection, index) => {
+          : visible.length === 0
+            ? h("text", { testId: "quota-filter-empty", style: { color: theme.muted, fontSize: 11 } }, "No connections for this provider.")
+            : visible.map((connection, index) => {
               const state = states[connection.id] || null;
               const rows = state && state.status === "data" ? quotaRows(state.data) : [];
               const message = state && state.status === "data" && state.data && state.data.message;

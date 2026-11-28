@@ -783,6 +783,15 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("expired token");
 
+    click(root.renderer, "quota-provider-claude");
+    await settle(root);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Work");
+    expect(painted).not.toContain("Backup");
+    click(root.renderer, "quota-provider-all");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Backup");
+
     click(root.renderer, "quota-refresh-all");
     await settle(root);
     expect(api.getConnectionUsage.mock.calls.filter(([id]) => id === "p1").length).toBe(2);
