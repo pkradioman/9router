@@ -59,6 +59,7 @@ export function QuotaPage({ api }) {
   const [connections, setConnections] = React.useState(null);
   const [states, setStates] = React.useState({});
   const [providerFilter, setProviderFilter] = React.useState("");
+  const [sortMode, setSortMode] = React.useState("default");
   const [error, setError] = React.useState("");
 
   const load = React.useCallback(() => {
@@ -87,6 +88,31 @@ export function QuotaPage({ api }) {
   const loaded = Object.keys(states);
   const providerIds = [...new Set((connections || []).map((connection) => connection.provider).filter(Boolean))].sort();
   const visible = (connections || []).filter((connection) => !providerFilter || connection.provider === providerFilter);
+  // Depleted-first ordering uses the lowest remaining share among the rows that
+  // were actually loaded; connections without data keep their original order
+  // after the loaded ones.
+  const remainingShare = (connection) => {
+    const state = states[connection.id];
+    if (!state || state.status !== "data") return null;
+    const rows = quotaRows(state.data);
+    if (rows.length === 0) return null;
+    return Math.min(
+      ...rows.map((row) =>
+        typeof row.remaining === "number" ? row.remaining / 100 : row.total > 0 ? 1 - row.used / row.total : 1
+      )
+    );
+  };
+  const ordered =
+    sortMode === "depleted"
+      ? [...visible].sort((a, b) => {
+          const left = remainingShare(a);
+          const right = remainingShare(b);
+          if (left === null && right === null) return 0;
+          if (left === null) return 1;
+          if (right === null) return -1;
+          return left - right;
+        })
+      : visible;
 
   return h(
     "div",
@@ -162,6 +188,31 @@ export function QuotaPage({ api }) {
       : null,
     h(
       "div",
+      { style: { display: "flex", flexDirection: "row", gap: 12, alignItems: "center" } },
+      h("text", { style: { color: theme.muted, fontSize: 10 } }, "Sort:"),
+      h(
+        "text",
+        {
+          testId: "quota-sort-default",
+          role: "button",
+          onClick: () => setSortMode("default"),
+          style: { color: sortMode === "default" ? theme.ok : theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
+        },
+        "Connection order"
+      ),
+      h(
+        "text",
+        {
+          testId: "quota-sort-depleted",
+          role: "button",
+          onClick: () => setSortMode("depleted"),
+          style: { color: sortMode === "depleted" ? theme.ok : theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
+        },
+        "Depleted first"
+      )
+    ),
+    h(
+      "div",
       {
         testId: "quota-list",
         style: {
@@ -183,7 +234,7 @@ export function QuotaPage({ api }) {
           ? h("text", { testId: "quota-empty", style: { color: theme.muted, fontSize: 11 } }, "No connections to track.")
           : visible.length === 0
             ? h("text", { testId: "quota-filter-empty", style: { color: theme.muted, fontSize: 11 } }, "No connections for this provider.")
-            : visible.map((connection, index) => {
+            : ordered.map((connection, index) => {
               const state = states[connection.id] || null;
               const rows = state && state.status === "data" ? quotaRows(state.data) : [];
               const message = state && state.status === "data" && state.data && state.data.message;

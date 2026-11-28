@@ -211,6 +211,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     importDatabase: vi.fn(async () => ({ success: true })),
     getConnectionUsage: vi.fn(async (id) => {
       if (id === "p2") throw new Error("expired token");
+      if (id === "p3") return { quotas: { day: { used: 95, total: 100 } } };
       return {
         quotas: {
           five_hour: { used: 10, total: 100, resetAt: "2026-11-28T08:00:00.000Z" },
@@ -759,6 +760,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     const api = createFakeApi([], [
       { id: "p1", name: "Work", provider: "claude", authType: "oauth", isActive: true },
       { id: "p2", name: "Backup", provider: "codex", authType: "oauth", isActive: true },
+      { id: "p3", name: "Almost", provider: "openai", authType: "apikey", isActive: true },
     ]);
     const root = mount(api);
     await settle(root);
@@ -786,6 +788,19 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     await settle(root);
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("expired token");
+
+    click(root.renderer, "quota-load-2");
+    await settle(root);
+    expect(api.getConnectionUsage).toHaveBeenCalledWith("p3");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("95 / 100");
+    click(root.renderer, "quota-sort-depleted");
+    await settle(root);
+    const sortedLines = root.renderer.getPaintedText();
+    expect(sortedLines.indexOf("Almost")).toBeLessThan(sortedLines.indexOf("Work"));
+    click(root.renderer, "quota-sort-default");
+    await settle(root);
+    const defaultLines = root.renderer.getPaintedText();
+    expect(defaultLines.indexOf("Work")).toBeLessThan(defaultLines.indexOf("Almost"));
 
     click(root.renderer, "quota-provider-claude");
     await settle(root);
