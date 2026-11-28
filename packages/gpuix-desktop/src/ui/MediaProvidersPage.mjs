@@ -190,11 +190,18 @@ export function MediaProvidersPage({ api, status }) {
       ),
       chip("media-refresh", "Refresh", load, false)
     ),
+    // Fixed rows of five: GPUIX rows do not wrap, so the chips are chunked.
     h(
       "div",
-      { style: { display: "flex", flexDirection: "row", gap: 14, flexWrap: "wrap" } },
-      ...MEDIA_KINDS.map((entry) =>
-        chip(`media-kind-${entry.id}`, entry.label, () => setKind(entry.id), kind === entry.id, providersForKind(entry.id).length)
+      { style: { display: "flex", flexDirection: "column", gap: 8 } },
+      ...[0, 5, 10].map((start) =>
+        h(
+          "div",
+          { key: start, style: { display: "flex", flexDirection: "row", gap: 14 } },
+          ...MEDIA_KINDS.slice(start, start + 5).map((entry) =>
+            chip(`media-kind-${entry.id}`, entry.label, () => setKind(entry.id), kind === entry.id, providersForKind(entry.id).length)
+          )
+        )
       )
     ),
     error ? h("text", { testId: "media-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
@@ -288,7 +295,7 @@ export function MediaProvidersPage({ api, status }) {
                 },
                 h(
                   "div",
-                  { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+                  { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" } },
                   h(
                     "div",
                     { style: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2 } },
@@ -484,10 +491,24 @@ export function MediaProvidersPage({ api, status }) {
         { testId: "media-example-endpoint", style: { color: theme.ok, fontSize: 11, fontFamily: "Consolas" } },
         `POST ${(status && status.baseUrl) || "http://127.0.0.1:20129"}${MEDIA_KINDS.find((entry) => entry.id === kind)?.endpoint || ""}`
       ),
-      h(
-        "text",
-        { testId: "media-example-curl", style: { color: theme.muted, fontSize: 10, fontFamily: "Consolas" } },
-        `curl -H "Authorization: Bearer <api-key>" -H "Content-Type: application/json" -d '{"model":"<model>","input":"<prompt>"}' ${(status && status.baseUrl) || "http://127.0.0.1:20129"}${MEDIA_KINDS.find((entry) => entry.id === kind)?.endpoint || ""}`
+      ...(() => {
+        const exampleUrl = `${(status && status.baseUrl) || "http://127.0.0.1:20129"}${MEDIA_KINDS.find((entry) => entry.id === kind)?.endpoint || ""}`;
+        return [
+          `curl -X POST "${exampleUrl}" \\`,
+          '  -H "Authorization: Bearer <api-key>" \\',
+          '  -H "Content-Type: application/json" \\',
+          `  -d '{"model":"<model>","input":"<prompt>"}'`,
+        ];
+      })().map((line, index) =>
+        h(
+          "text",
+          {
+            key: index,
+            testId: index === 0 ? "media-example-curl" : undefined,
+            style: { color: theme.muted, fontSize: 10, fontFamily: "Consolas" },
+          },
+          line
+        )
       ),
       h(
         "text",
