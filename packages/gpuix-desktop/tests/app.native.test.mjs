@@ -581,6 +581,14 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("OpenAI");
     expect(painted).toContain("2 connected");
     expect(painted).toContain("Disable");
+    expect(painted).toContain("POST http://127.0.0.1:20129/v1/images/generations");
+    expect(painted).toContain("Authorization: Bearer <api-key>");
+
+    click(root.renderer, "media-kind-tts");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("POST http://127.0.0.1:20129/v1/audio/speech");
+    click(root.renderer, "media-kind-image");
+    await settle(root);
 
     click(root.renderer, "media-toggle-openai");
     await settle(root);

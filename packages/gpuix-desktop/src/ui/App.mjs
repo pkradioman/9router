@@ -118,7 +118,7 @@ export function App({ api, status, onRefresh }) {
   else if (page === "chat") content = h(ChatPage, { api });
   else if (page === "providers") content = h(ProvidersPage, { api });
   else if (page === "models") content = h(ModelsPage, { api });
-  else if (page === "media-providers") content = h(MediaProvidersPage, { api });
+  else if (page === "media-providers") content = h(MediaProvidersPage, { api, status });
   else if (page === "usage") content = h(UsagePage, { api });
   else if (page === "combos") content = h(CombosPage, { api });
   else if (page === "console-log") content = h(ConsoleLogPage, { api });

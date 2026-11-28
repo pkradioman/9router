@@ -39,7 +39,7 @@ function connectionState(conns) {
   return { active, errors, allDisabled };
 }
 
-export function MediaProvidersPage({ api }) {
+export function MediaProvidersPage({ api, status }) {
   const [kind, setKind] = React.useState("image");
   const [connections, setConnections] = React.useState(null);
   const [nodes, setNodes] = React.useState([]);
@@ -333,9 +333,45 @@ export function MediaProvidersPage({ api }) {
             })
     ),
     h(
+      "div",
+      {
+        testId: "media-example",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: theme.panel,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 10,
+          padding: 16,
+          gap: 6,
+        },
+      },
+      h(
+        "text",
+        { style: { color: theme.text, fontSize: 12, fontWeight: 600 } },
+        `Example request — ${MEDIA_KINDS.find((entry) => entry.id === kind)?.label || kind}`
+      ),
+      h(
+        "text",
+        { testId: "media-example-endpoint", style: { color: theme.ok, fontSize: 11, fontFamily: "Consolas" } },
+        `POST ${(status && status.baseUrl) || "http://127.0.0.1:20129"}${MEDIA_KINDS.find((entry) => entry.id === kind)?.endpoint || ""}`
+      ),
+      h(
+        "text",
+        { testId: "media-example-curl", style: { color: theme.muted, fontSize: 10, fontFamily: "Consolas" } },
+        `curl -H "Authorization: Bearer <api-key>" -H "Content-Type: application/json" -d '{"model":"<model>","input":"<prompt>"}' ${(status && status.baseUrl) || "http://127.0.0.1:20129"}${MEDIA_KINDS.find((entry) => entry.id === kind)?.endpoint || ""}`
+      ),
+      h(
+        "text",
+        { style: { color: theme.muted, fontSize: 10 } },
+        "Provider-specific example cards (voices, sizes, file uploads) stay on the dashboard."
+      )
+    ),
+    h(
       "text",
       { style: { color: theme.muted, fontSize: 11 } },
-      "Toggles every connection of that provider. Per-model media lists, example requests and media combos stay on the dashboard."
+      "Toggles every connection of that provider. Media combos and provider-specific examples stay on the dashboard."
     )
   );
 }
