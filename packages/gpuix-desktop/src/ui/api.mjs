@@ -57,6 +57,8 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     createProvider: (body) => request("/api/providers", { method: "POST", body }),
     deleteProvider: (id) => request(`/api/providers/${encodeURIComponent(id)}`, { method: "DELETE" }),
     testProvider: (id) => request(`/api/providers/${encodeURIComponent(id)}/test`, { method: "POST" }),
+    validateProvider: (provider, apiKey) =>
+      request("/api/providers/validate", { method: "POST", body: { provider, apiKey } }),
     listProviderNodes: async () => {
       const body = await request("/api/provider-nodes");
       return (body && body.nodes) || [];

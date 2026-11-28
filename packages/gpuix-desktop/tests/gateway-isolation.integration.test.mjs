@@ -272,6 +272,13 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(priceReset.status).toBe(200);
     expect((await call("/api/pricing")).body["gpuix-probe"]?.["probe-model"]).toBeUndefined();
 
+    // Key validation for an unknown provider must answer without dialling out.
+    const validateProbe = await call("/api/providers/validate", {
+      method: "POST",
+      body: JSON.stringify({ provider: "gpuix-probe", apiKey: "gpuix-invalid" }),
+    });
+    expect([400, 404]).toContain(validateProbe.status);
+
     // Model availability reads connection cooldown locks; a fresh isolated DB
     // has none, and clearing a synthetic lock is a no-op that still answers 200.
     const availability = await call("/api/models/availability");

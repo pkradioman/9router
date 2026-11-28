@@ -109,6 +109,9 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       providers = providers.filter((item) => item.id !== id);
       return { success: true };
     }),
+    validateProvider: vi.fn(async (_provider, apiKey) =>
+      apiKey === "sk-bad" ? { valid: false, error: "invalid key" } : { valid: true }
+    ),
     testProvider: vi.fn(async (id) => {
       if (id === "p2") return { valid: false, error: "invalid key" };
       return { valid: true, refreshed: false };
@@ -742,6 +745,11 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     };
     await typeInto("provider-id-input", "o p e n a i");
     await typeInto("provider-key-input", "s k - t e s t");
+    click(root.renderer, "provider-validate");
+    await settle(root);
+    expect(api.validateProvider).toHaveBeenCalledWith("openai", "sk-test");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Key valid");
+
     click(root.renderer, "provider-create");
     await settle(root);
 

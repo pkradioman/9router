@@ -309,6 +309,7 @@ export function ProvidersPage({ api }) {
   const [providerId, setProviderId] = React.useState("");
   const [apiKey, setApiKey] = React.useState("");
   const [name, setName] = React.useState("");
+  const [validateResult, setValidateResult] = React.useState(null);
   const [nodes, setNodes] = React.useState(null);
   const [strategies, setStrategies] = React.useState({});
   const [stickyDraft, setStickyDraft] = React.useState({});
@@ -362,6 +363,25 @@ export function ProvidersPage({ api }) {
         load();
       })
       .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
+  // Key check against the provider before creating the connection; one real
+  // request with the entered key, same as the dashboard's add dialog.
+  const validateDraft = () => {
+    if (!providerId.trim() || !apiKey.trim()) {
+      setError("Enter a provider ID and an API key first.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setValidateResult(null);
+    api
+      .validateProvider(providerId.trim(), apiKey.trim())
+      .then((body) => setValidateResult(body || null))
+      .catch((err) => {
+        setValidateResult({ valid: false, error: err.message });
+      })
       .finally(() => setBusy(false));
   };
 
@@ -579,8 +599,28 @@ export function ProvidersPage({ api }) {
             },
           },
           "Add connection"
+        ),
+        h(
+          "text",
+          {
+            testId: "provider-validate",
+            role: "button",
+            onClick: busy ? () => {} : validateDraft,
+            style: { color: busy ? theme.muted : theme.muted, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+          },
+          "Validate key"
         )
       ),
+      validateResult
+        ? h(
+            "text",
+            {
+              testId: "provider-validate-result",
+              style: { color: validateResult.valid ? theme.ok : theme.bad, fontSize: 11 },
+            },
+            validateResult.valid ? "Key valid" : `Invalid: ${validateResult.error || "rejected by provider"}`
+          )
+        : null,
       error ? h("text", { testId: "providers-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
       providers === null
         ? h("text", { testId: "providers-loading", style: { color: theme.muted, fontSize: 12 } }, "Loading providers...")
