@@ -207,6 +207,8 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       version: "0.9.1",
       url: "http://127.0.0.1:5757",
     })),
+    getDatabaseBackup: vi.fn(async () => ({ version: 1, marker: "db" })),
+    importDatabase: vi.fn(async () => ({ success: true })),
     getConnectionUsage: vi.fn(async (id) => {
       if (id === "p2") throw new Error("expired token");
       return {
