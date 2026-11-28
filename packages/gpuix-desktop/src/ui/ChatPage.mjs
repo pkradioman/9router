@@ -10,6 +10,13 @@ import { theme } from "./theme.mjs";
 const h = React.createElement;
 const CHUNK = 96;
 
+// GPUIX has no multiline field, so a typed \n (or \t) is expanded before send.
+export function expandEscapes(text) {
+  return String(text ?? "")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t");
+}
+
 export function wrapText(text, chunk = CHUNK) {
   const lines = [];
   for (const raw of String(text ?? "").split("\n")) {
@@ -77,11 +84,11 @@ export function ChatPage({ api }) {
   const apiKey = (keys.find((item) => item.id === keyId) || {}).key || null;
 
   const send = () => {
-    const text = draft.trim();
+    const text = expandEscapes(draft.trim());
     if (!text || !model || busy) return;
     const next = [...messages, { role: "user", content: text }];
     const payload = [
-      ...(system.trim() ? [{ role: "system", content: system.trim() }] : []),
+      ...(system.trim() ? [{ role: "system", content: expandEscapes(system.trim()) }] : []),
       ...next,
     ];
     setMessages(next);
@@ -335,7 +342,7 @@ export function ChatPage({ api }) {
     h(
       "text",
       { style: { color: theme.muted, fontSize: 10 } },
-      "Streams through /v1/chat/completions; a send spends the selected provider account. Multiline prompts stay on the dashboard."
+      "Streams through /v1/chat/completions; a send spends the selected provider account. Type \\n for a line break — GPUIX has no multiline field."
     )
   );
 }
