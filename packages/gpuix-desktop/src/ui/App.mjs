@@ -38,7 +38,7 @@ const PAGES = [
   { id: "request-log", label: "Request log", enabled: true },
   { id: "quota", label: "Quota Tracker", enabled: false },
   { id: "token-saver", label: "Token Saver", enabled: true },
-  { id: "cli-tools", label: "CLI Tools", enabled: true },
+  { id: "cli-tools", label: "CLI Tools", enabled: false },
   { id: "translator", label: "Translator", enabled: true },
   { id: "console-log", label: "Console Log", enabled: true },
   { id: "proxy-pools", label: "Proxy Pools", enabled: true },

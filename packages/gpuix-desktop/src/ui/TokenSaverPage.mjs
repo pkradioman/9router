@@ -231,7 +231,7 @@ export function TokenSaverPage({ api }) {
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Caveman and RTK act on plain settings. Headroom start/stop and pxpipe are blocked in the experimental build."
+        "RTK and Caveman are the only saver tools in scope. Headroom start/stop, pxpipe and the other savers are deferred by the owner."
       )
     ),
     h(

@@ -1097,21 +1097,15 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     });
   });
 
-  it("shows CLI tool connection status", async () => {
+  it("keeps CLI tools disabled in the sidebar", async () => {
     const api = createFakeApi();
     const root = mount(api);
     await settle(root);
-
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("CLI Tools");
     click(root.renderer, "nav-cli-tools");
     await settle(root);
-    const painted = root.renderer.getPaintedText().join("\n");
-    expect(painted).toContain("Claude Code");
-    expect(painted).toContain("Connected to 9Router");
-    expect(painted).toContain("Codex");
-    expect(painted).toContain("Installed, not connected");
-    expect(painted).toContain("Droid");
-    expect(painted).toContain("Not installed");
-    expect(painted).toContain("Unavailable");
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Endpoint & Key");
   });
 
   it("creates and deletes a custom provider node", async () => {
