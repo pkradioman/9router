@@ -60,7 +60,7 @@ export function App({ api, status, onRefresh }) {
         display: "flex",
         flexDirection: "column",
         width: 216,
-        backgroundColor: theme.panel,
+        backgroundColor: theme.canvas,
         borderRightWidth: 1,
         borderColor: theme.border,
         paddingTop: 20,
@@ -72,12 +72,30 @@ export function App({ api, status, onRefresh }) {
     },
     h(
       "div",
-      { style: { display: "flex", flexDirection: "column", paddingLeft: 8, paddingBottom: 12, gap: 2 } },
+      { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", paddingLeft: 8, paddingBottom: 12, gap: 4 } },
       h("text", { style: { color: theme.text, fontSize: 15, fontWeight: 600 } }, "9Router Experimental"),
-      h("text", { style: { color: theme.muted, fontSize: 11 } }, `v${status.version || "unknown"}`)
-    ),
-    ...PAGES.map((item) =>
       h(
+        "text",
+        {
+          style: {
+            color: theme.muted,
+            fontSize: 10,
+            backgroundColor: theme.card,
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderRadius: 999,
+            paddingTop: 2,
+            paddingBottom: 2,
+            paddingLeft: 8,
+            paddingRight: 8,
+          },
+        },
+        `v${status.version || "unknown"}`
+      )
+    ),
+    ...PAGES.map((item) => {
+      const active = page === item.id;
+      return h(
         "div",
         {
           key: item.id,
@@ -89,19 +107,19 @@ export function App({ api, status, onRefresh }) {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingTop: 7,
-            paddingBottom: 7,
+            height: 34,
             paddingLeft: 10,
             paddingRight: 10,
-            borderRadius: 7,
-            backgroundColor: page === item.id ? theme.panelAlt : "transparent",
+            borderRadius: 10,
+            backgroundColor: active ? theme.card : "transparent",
+            ...(active ? { boxShadow: theme.shadow } : { hover: { backgroundColor: theme.panelAlt } }),
           },
         },
         h(
           "text",
           {
             style: {
-              color: !item.enabled ? "#55555c" : page === item.id ? theme.text : theme.muted,
+              color: !item.enabled ? theme.faint : active ? theme.text : theme.muted,
               fontSize: 12,
             },
           },
@@ -109,9 +127,9 @@ export function App({ api, status, onRefresh }) {
         ),
         item.enabled
           ? null
-          : h("text", { style: { color: "#55555c", fontSize: 10 } }, "soon")
-      )
-    )
+          : h("text", { style: { color: theme.faint, fontSize: 10 } }, "soon")
+      );
+    })
   );
 
   let content;
@@ -140,7 +158,7 @@ export function App({ api, status, onRefresh }) {
       style: {
         display: "flex",
         flexDirection: "row",
-        backgroundColor: theme.surface,
+        backgroundColor: theme.canvas,
         height: "100%",
       },
     },
@@ -160,6 +178,7 @@ export function App({ api, status, onRefresh }) {
             paddingBottom: 14,
             paddingLeft: 24,
             paddingRight: 24,
+            backgroundColor: theme.card,
             borderBottomWidth: 1,
             borderColor: theme.border,
           },
@@ -184,7 +203,7 @@ export function App({ api, status, onRefresh }) {
         h("div", { style: { flexGrow: 1 } }),
         h("text", { style: { color: theme.muted, fontSize: 11 } }, status.baseUrl)
       ),
-      h("div", { style: { flexGrow: 1, minHeight: 0 } }, content)
+      h("div", { style: { flexGrow: 1, minHeight: 0, backgroundColor: theme.canvas } }, content)
     )
   );
 }

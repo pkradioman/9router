@@ -7,6 +7,7 @@
 // and otherwise shows the provider message verbatim.
 import React from "react";
 import { theme } from "./theme.mjs";
+import { Button, Chip, EmptyState, InlineError, Section, SectionTitle } from "./primitives.mjs";
 
 const h = React.createElement;
 
@@ -120,8 +121,9 @@ export function QuotaPage({ api }) {
       style: {
         display: "flex",
         flexDirection: "column",
-        backgroundColor: theme.surface,
+        backgroundColor: theme.canvas,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 14,
       },
@@ -129,57 +131,48 @@ export function QuotaPage({ api }) {
     h(
       "div",
       { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 16 } },
-      h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Quota tracker"),
       h(
-        "text",
-        { style: { color: theme.muted, fontSize: 11 } },
-        `${connections === null ? "loading" : connections.length} connections · quota is read only when you load a row`
+        SectionTitle,
+        {
+          style: { flexGrow: 1 },
+          subtitle: `${connections === null ? "loading" : connections.length} connections · quota is read only when you load a row`,
+        },
+        "Quota tracker"
       ),
       h(
-        "text",
+        Button,
         {
+          variant: "ghost",
           testId: "quota-refresh-all",
-          role: "button",
           onClick: () => {
             for (const connection of connections || []) {
               if (states[connection.id] && states[connection.id].status !== "loading") fetchQuota(connection);
             }
           },
-          style: {
-            color: loaded.length ? theme.ok : theme.muted,
-            fontSize: 11,
-            cursor: loaded.length ? "pointer" : "default",
-            hover: loaded.length ? { color: theme.text } : {},
-          },
+          style: { height: 26, fontSize: 11, color: loaded.length ? theme.ok : theme.muted },
         },
         `Refresh loaded (${loaded.length})`
       )
     ),
-    error ? h("text", { testId: "quota-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
+    error ? h(InlineError, { testId: "quota-error" }, error) : null,
     providerIds.length > 1
       ? h(
           "div",
           { style: { display: "flex", flexDirection: "row", gap: 12, alignItems: "center" } },
           h("text", { style: { color: theme.muted, fontSize: 10 } }, "Provider:"),
           h(
-            "text",
-            {
-              testId: "quota-provider-all",
-              role: "button",
-              onClick: () => setProviderFilter(""),
-              style: { color: providerFilter ? theme.muted : theme.ok, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
-            },
+            Chip,
+            { testId: "quota-provider-all", active: !providerFilter, onClick: () => setProviderFilter("") },
             "All"
           ),
           ...providerIds.map((id) =>
             h(
-              "text",
+              Chip,
               {
                 key: id,
                 testId: `quota-provider-${id}`,
-                role: "button",
+                active: providerFilter === id,
                 onClick: () => setProviderFilter(id),
-                style: { color: providerFilter === id ? theme.ok : theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
               },
               id
             )
@@ -191,49 +184,28 @@ export function QuotaPage({ api }) {
       { style: { display: "flex", flexDirection: "row", gap: 12, alignItems: "center" } },
       h("text", { style: { color: theme.muted, fontSize: 10 } }, "Sort:"),
       h(
-        "text",
-        {
-          testId: "quota-sort-default",
-          role: "button",
-          onClick: () => setSortMode("default"),
-          style: { color: sortMode === "default" ? theme.ok : theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
-        },
+        Chip,
+        { testId: "quota-sort-default", active: sortMode === "default", onClick: () => setSortMode("default") },
         "Connection order"
       ),
       h(
-        "text",
-        {
-          testId: "quota-sort-depleted",
-          role: "button",
-          onClick: () => setSortMode("depleted"),
-          style: { color: sortMode === "depleted" ? theme.ok : theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
-        },
+        Chip,
+        { testId: "quota-sort-depleted", active: sortMode === "depleted", onClick: () => setSortMode("depleted") },
         "Depleted first"
       )
     ),
     h(
-      "div",
+      Section,
       {
         testId: "quota-list",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          minHeight: 0,
-          backgroundColor: theme.panel,
-          borderWidth: 1,
-          borderColor: theme.border,
-          borderRadius: 10,
-          padding: 12,
-          gap: 4,
-        },
+        style: { flexGrow: 1, minHeight: 0, padding: 12, gap: 4 },
       },
       connections === null
         ? h("text", { testId: "quota-loading", style: { color: theme.muted, fontSize: 11 } }, "Loading connections...")
         : connections.length === 0
-          ? h("text", { testId: "quota-empty", style: { color: theme.muted, fontSize: 11 } }, "No connections to track.")
+          ? h(EmptyState, { testId: "quota-empty" }, "No connections to track.")
           : visible.length === 0
-            ? h("text", { testId: "quota-filter-empty", style: { color: theme.muted, fontSize: 11 } }, "No connections for this provider.")
+            ? h(EmptyState, { testId: "quota-filter-empty" }, "No connections for this provider.")
             : ordered.map((connection, index) => {
               const state = states[connection.id] || null;
               const rows = state && state.status === "data" ? quotaRows(state.data) : [];

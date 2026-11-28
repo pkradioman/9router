@@ -4,6 +4,7 @@
 // OAuth flows, proxy pools and model tests are not native yet and stay pending.
 import React from "react";
 import { theme } from "./theme.mjs";
+import { Button, Chip, EmptyState, Field, InlineError, Section, SectionTitle } from "./primitives.mjs";
 import {
   PING_SCHEDULE_DEFAULTS,
   getLocalTimezone,
@@ -148,7 +149,7 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy, autoPin
           testId: `provider-delete-${item.id}`,
           role: "button",
           onClick: () => (busy ? null : onDelete(item)),
-          style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
+          style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.bad } },
         },
         "Delete"
       )
@@ -166,21 +167,7 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy, autoPin
     autoPing && item.authType === "oauth"
       ? (() => {
           const pingChip = (testId, label, active, onClick) =>
-            h(
-              "text",
-              {
-                testId,
-                role: "button",
-                onClick: busy ? null : onClick,
-                style: {
-                  color: busy ? theme.muted : active ? theme.ok : theme.muted,
-                  fontSize: 10,
-                  cursor: busy ? "default" : "pointer",
-                  hover: busy ? {} : { color: theme.text },
-                },
-              },
-              label
-            );
+            h(Chip, { testId, active, onClick: busy ? null : onClick }, label);
           const saveSchedule = () => {
             if (!pingAnchor.trim() || !Number(pingWindow) || !Number(pingSlots)) return;
             onSaveAutoPing(item.id, {
@@ -218,29 +205,32 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy, autoPin
               ? h(
                   "div",
                   { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-                  h("input", {
+                  h(Field, {
                     testId: `provider-autoping-anchor-${item.id}`,
                     "aria-label": "Anchor time",
                     value: pingAnchor,
                     onChange: (event) => setPingAnchor(event.value ?? ""),
                     onSubmit: saveSchedule,
-                    style: { width: 66, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                    width: 66,
+                    height: 24,
                   }),
-                  h("input", {
+                  h(Field, {
                     testId: `provider-autoping-window-${item.id}`,
                     "aria-label": "Window hours",
                     value: pingWindow,
                     onChange: (event) => setPingWindow(event.value ?? ""),
                     onSubmit: saveSchedule,
-                    style: { width: 50, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                    width: 50,
+                    height: 24,
                   }),
-                  h("input", {
+                  h(Field, {
                     testId: `provider-autoping-slots-${item.id}`,
                     "aria-label": "Pings per day",
                     value: pingSlots,
                     onChange: (event) => setPingSlots(event.value ?? ""),
                     onSubmit: saveSchedule,
-                    style: { width: 46, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                    width: 46,
+                    height: 24,
                   }),
                   h(
                     "text",
@@ -266,36 +256,40 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy, autoPin
       ? h(
           "div",
           { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-          h("input", {
+          h(Field, {
             testId: `provider-name-edit-${item.id}`,
             "aria-label": "Connection name",
             value: draftName,
             onChange: (event) => setDraftName(event.value ?? ""),
-            style: { width: 150, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+            width: 150,
+            height: 26,
           }),
-          h("input", {
+          h(Field, {
             testId: `provider-model-edit-${item.id}`,
             "aria-label": "Default model",
             value: draftModel,
             onChange: (event) => setDraftModel(event.value ?? ""),
-            style: { width: 180, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+            width: 180,
+            height: 26,
           }),
-          h("input", {
+          h(Field, {
             testId: `provider-priority-edit-${item.id}`,
             "aria-label": "Priority",
             value: draftPriority,
             onChange: (event) => setDraftPriority(event.value ?? ""),
             onSubmit: save,
-            style: { width: 70, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+            width: 70,
+            height: 26,
           }),
-          h("input", {
+          h(Field, {
             testId: `provider-proxy-edit-${item.id}`,
             "aria-label": "Proxy pool ID",
             value: draftProxy,
             onChange: (event) => setDraftProxy(event.value ?? ""),
             onSubmit: save,
             placeholder: "proxy pool id (none)",
-            style: { width: 150, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+            width: 150,
+            height: 26,
           }),
           h(
             "text",
@@ -381,7 +375,7 @@ function NodeRow({ node, onDelete, onUpdate, busy }) {
             color: theme.bad,
             fontSize: 11,
             cursor: busy ? "default" : "pointer",
-            hover: busy ? {} : { color: "#ff9c9c" },
+            hover: busy ? {} : { color: theme.bad },
           },
         },
         "Delete"
@@ -391,27 +385,30 @@ function NodeRow({ node, onDelete, onUpdate, busy }) {
       ? h(
           "div",
           { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-          h("input", {
+          h(Field, {
             testId: `node-name-edit-${node.id}`,
             "aria-label": "Node name",
             value: draftName,
             onChange: (event) => setDraftName(event.value ?? ""),
-            style: { width: 140, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+            width: 140,
+            height: 24,
           }),
-          h("input", {
+          h(Field, {
             testId: `node-prefix-edit-${node.id}`,
             "aria-label": "Model prefix",
             value: draftPrefix,
             onChange: (event) => setDraftPrefix(event.value ?? ""),
-            style: { width: 110, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+            width: 110,
+            height: 24,
           }),
-          h("input", {
+          h(Field, {
             testId: `node-url-edit-${node.id}`,
             "aria-label": "Base URL",
             value: draftUrl,
             onChange: (event) => setDraftUrl(event.value ?? ""),
             onSubmit: save,
-            style: { width: 260, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+            width: 260,
+            height: 24,
           }),
           h(
             "text",
@@ -677,9 +674,6 @@ export function ProvidersPage({ api }) {
       .finally(() => setBusy(false));
   };
 
-  const inputStyle = { width: 170, height: 30, color: theme.text, backgroundColor: theme.panelAlt };
-  const field = (props) => h("input", { ...props, style: inputStyle });
-
   const availabilityIssues = availability || [];
   const availabilityGroups = availabilityIssues.reduce((map, item) => {
     const key = item.provider || "unknown";
@@ -694,82 +688,55 @@ export function ProvidersPage({ api }) {
       style: {
         display: "flex",
         flexDirection: "column",
-        backgroundColor: theme.surface,
+        backgroundColor: theme.canvas,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },
     },
     h(
-      "div",
+      Section,
       {
         testId: "providers-section",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: theme.panel,
-          borderWidth: 1,
-          borderColor: theme.border,
-          borderRadius: 10,
-          padding: 16,
-          gap: 10,
-        },
       },
-      h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Provider connections"),
+      h(SectionTitle, null, "Provider connections"),
       h(
         "div",
         { style: { display: "flex", flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" } },
-        field({
+        h(Field, {
           testId: "provider-id-input",
           "aria-label": "Provider ID",
           value: providerId,
           onChange: (event) => setProviderId(event.value ?? ""),
           placeholder: "provider id (e.g. openai)",
+          width: 170,
         }),
-        field({
+        h(Field, {
           testId: "provider-key-input",
           "aria-label": "Provider API key",
           value: apiKey,
           onChange: (event) => setApiKey(event.value ?? ""),
           placeholder: "API key",
+          width: 170,
         }),
-        field({
+        h(Field, {
           testId: "provider-name-input",
           "aria-label": "Connection name",
           value: name,
           onChange: (event) => setName(event.value ?? ""),
           onSubmit: create,
           placeholder: "name (optional)",
+          width: 170,
         }),
         h(
-          "text",
-          {
-            testId: "provider-create",
-            role: "button",
-            onClick: busy ? () => {} : create,
-            style: {
-              paddingTop: 6,
-              paddingBottom: 6,
-              paddingLeft: 12,
-              paddingRight: 12,
-              borderRadius: 8,
-              backgroundColor: theme.panelAlt,
-              color: busy ? theme.muted : theme.text,
-              fontSize: 12,
-              cursor: busy ? "default" : "pointer",
-              hover: busy ? {} : { backgroundColor: "#2e2e33" },
-            },
-          },
+          Button,
+          { variant: "primary", testId: "provider-create", onClick: busy ? null : create },
           "Add connection"
         ),
         h(
-          "text",
-          {
-            testId: "provider-validate",
-            role: "button",
-            onClick: busy ? () => {} : validateDraft,
-            style: { color: busy ? theme.muted : theme.muted, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
-          },
+          Button,
+          { variant: "ghost", testId: "provider-validate", onClick: busy ? null : validateDraft },
           "Validate key"
         )
       ),
@@ -783,15 +750,11 @@ export function ProvidersPage({ api }) {
             validateResult.valid ? "Key valid" : `Invalid: ${validateResult.error || "rejected by provider"}`
           )
         : null,
-      error ? h("text", { testId: "providers-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
+      error ? h(InlineError, { testId: "providers-error" }, error) : null,
       providers === null
         ? h("text", { testId: "providers-loading", style: { color: theme.muted, fontSize: 12 } }, "Loading providers...")
         : providers.length === 0
-          ? h(
-              "text",
-              { testId: "providers-empty", style: { color: theme.muted, fontSize: 12 } },
-              "No provider connections yet."
-            )
+          ? h(EmptyState, { testId: "providers-empty" }, "No provider connections yet.")
           : h(
               "div",
               { style: { display: "flex", flexDirection: "column" } },
@@ -810,12 +773,12 @@ export function ProvidersPage({ api }) {
               )
             ),
       h(
-        "text",
+        Button,
         {
+          variant: "ghost",
           testId: "nodes-open",
-          role: "button",
           onClick: () => setNodesOpen((value) => !value),
-          style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+          style: { alignSelf: "flex-start" },
         },
         `${nodesOpen ? "Hide" : "Show"} custom nodes (${nodes === null ? "…" : nodes.length})`
       ),
@@ -826,21 +789,11 @@ export function ProvidersPage({ api }) {
       )
     ),
     nodesOpen ? h(
-      "div",
+      Section,
       {
         testId: "nodes-section",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: theme.panel,
-          borderWidth: 1,
-          borderColor: theme.border,
-          borderRadius: 10,
-          padding: 16,
-          gap: 10,
-        },
       },
-      h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Custom provider nodes"),
+      h(SectionTitle, null, "Custom provider nodes"),
       h(
         "div",
         { style: { display: "flex", flexDirection: "row", gap: 14, alignItems: "center", flexWrap: "wrap" } },
@@ -850,18 +803,12 @@ export function ProvidersPage({ api }) {
           ["custom-embedding", "Embedding"],
         ].map(([id, label]) =>
           h(
-            "text",
+            Chip,
             {
               key: id,
               testId: `node-type-${id}`,
-              role: "button",
+              active: nodeType === id,
               onClick: busy ? null : () => setNodeType(id),
-              style: {
-                color: nodeType === id ? theme.ok : theme.muted,
-                fontSize: 10,
-                cursor: busy ? "default" : "pointer",
-                hover: busy ? {} : { color: theme.text },
-              },
             },
             label
           )
@@ -875,18 +822,12 @@ export function ProvidersPage({ api }) {
                 ["responses", "api responses"],
               ].map(([id, label]) =>
                 h(
-                  "text",
+                  Chip,
                   {
                     key: id,
                     testId: `node-apitype-${id}`,
-                    role: "button",
+                    active: nodeApiType === id,
                     onClick: busy ? null : () => setNodeApiType(id),
-                    style: {
-                      color: nodeApiType === id ? theme.ok : theme.muted,
-                      fontSize: 10,
-                      cursor: busy ? "default" : "pointer",
-                      hover: busy ? {} : { color: theme.text },
-                    },
                   },
                   label
                 )
@@ -897,54 +838,41 @@ export function ProvidersPage({ api }) {
       h(
         "div",
         { style: { display: "flex", flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" } },
-        field({
+        h(Field, {
           testId: "node-name-input",
           "aria-label": "Node name",
           value: nodeName,
           onChange: (event) => setNodeName(event.value ?? ""),
           placeholder: "node name",
+          width: 170,
         }),
-        field({
+        h(Field, {
           testId: "node-prefix-input",
           "aria-label": "Model prefix",
           value: nodePrefix,
           onChange: (event) => setNodePrefix(event.value ?? ""),
           placeholder: "model prefix",
+          width: 170,
         }),
-        field({
+        h(Field, {
           testId: "node-url-input",
           "aria-label": "Base URL",
           value: nodeBaseUrl,
           onChange: (event) => setNodeBaseUrl(event.value ?? ""),
           onSubmit: createNode,
           placeholder: "https://host/v1",
+          width: 170,
         }),
         h(
-          "text",
-          {
-            testId: "node-create",
-            role: "button",
-            onClick: busy ? () => {} : createNode,
-            style: {
-              paddingTop: 6,
-              paddingBottom: 6,
-              paddingLeft: 12,
-              paddingRight: 12,
-              borderRadius: 8,
-              backgroundColor: theme.panelAlt,
-              color: busy ? theme.muted : theme.text,
-              fontSize: 12,
-              cursor: busy ? "default" : "pointer",
-              hover: busy ? {} : { backgroundColor: "#2e2e33" },
-            },
-          },
+          Button,
+          { variant: "primary", testId: "node-create", onClick: busy ? null : createNode },
           "Add node"
         )
       ),
       nodes === null
         ? h("text", { testId: "nodes-loading", style: { color: theme.muted, fontSize: 12 } }, "Loading nodes...")
         : nodes.length === 0
-          ? h("text", { testId: "nodes-empty", style: { color: theme.muted, fontSize: 12 } }, "No custom nodes yet.")
+          ? h(EmptyState, { testId: "nodes-empty" }, "No custom nodes yet.")
           : h(
               "div",
               { style: { display: "flex", flexDirection: "column" } },
@@ -959,24 +887,15 @@ export function ProvidersPage({ api }) {
       )
     ) : null,
     h(
-      "div",
+      Section,
       {
         testId: "availability-section",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: theme.panel,
-          borderWidth: 1,
-          borderColor: theme.border,
-          borderRadius: 10,
-          padding: 16,
-          gap: 8,
-        },
+        style: { gap: 8 },
       },
       h(
         "div",
         { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
-        h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Model availability"),
+        h(SectionTitle, null, "Model availability"),
         h(
           "text",
           {
@@ -991,12 +910,12 @@ export function ProvidersPage({ api }) {
         ),
         h("div", { style: { flexGrow: 1 } }),
         h(
-          "text",
+          Button,
           {
+            variant: "ghost",
             testId: "availability-refresh",
-            role: "button",
             onClick: loadAvailability,
-            style: { color: theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
+            style: { height: 22, fontSize: 11 },
           },
           "Refresh"
         )
@@ -1004,11 +923,7 @@ export function ProvidersPage({ api }) {
       availability === null
         ? null
         : availabilityIssues.length === 0
-          ? h(
-              "text",
-              { testId: "availability-ok", style: { color: theme.muted, fontSize: 11 } },
-              "No cooldowns or unavailable connections right now."
-            )
+          ? h(EmptyState, { testId: "availability-ok" }, "No cooldowns or unavailable connections right now.")
           : h(
               "div",
               { style: { display: "flex", flexDirection: "column", gap: 6 } },
@@ -1063,21 +978,12 @@ export function ProvidersPage({ api }) {
             )
     ),
     h(
-      "div",
+      Section,
       {
         testId: "provider-strategies",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: theme.panel,
-          borderWidth: 1,
-          borderColor: theme.border,
-          borderRadius: 10,
-          padding: 16,
-          gap: 8,
-        },
+        style: { gap: 8 },
       },
-      h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Provider strategies"),
+      h(SectionTitle, null, "Provider strategies"),
       h(
         "text",
         { style: { color: theme.muted, fontSize: 10 } },
@@ -1088,17 +994,8 @@ export function ProvidersPage({ api }) {
         : [...new Set(providers.map((item) => item.provider).filter(Boolean))].map((providerId) => {
             const override = strategies[providerId] || {};
             const roundRobin = override.fallbackStrategy === "round-robin";
-            const chip = (testId, label, onClick, color) =>
-              h(
-                "text",
-                {
-                  testId,
-                  role: "button",
-                  onClick: busy ? null : onClick,
-                  style: { color: busy ? theme.muted : color, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
-                },
-                label
-              );
+            const chip = (testId, label, onClick, active) =>
+              h(Chip, { testId, active, onClick: busy ? null : onClick }, label);
             const stickyValue =
               stickyDraft[providerId] !== undefined
                 ? stickyDraft[providerId]
@@ -1115,28 +1012,29 @@ export function ProvidersPage({ api }) {
                 `provider-strategy-${providerId}-global`,
                 "Global",
                 () => saveStrategy(providerId, null),
-                roundRobin ? theme.muted : theme.ok
+                !roundRobin
               ),
               chip(
                 `provider-strategy-${providerId}-rr`,
                 "Round robin",
                 () => saveStrategy(providerId, "round-robin", stickyValue),
-                roundRobin ? theme.ok : theme.muted
+                roundRobin
               ),
-              h("input", {
+              h(Field, {
                 testId: `provider-strategy-${providerId}-sticky`,
                 "aria-label": "Sticky round-robin limit",
                 value: stickyValue,
                 onChange: (event) =>
                   setStickyDraft((value) => ({ ...value, [providerId]: event.value ?? "" })),
                 onSubmit: () => saveStrategy(providerId, "round-robin", stickyValue),
-                style: { width: 70, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                width: 70,
+                height: 24,
               }),
               chip(
                 `provider-strategy-${providerId}-sticky-save`,
                 "Save sticky",
                 () => saveStrategy(providerId, "round-robin", stickyValue),
-                theme.muted
+                false
               )
             );
           })

@@ -144,7 +144,7 @@ function ModelRow({ item, disabled, isCustom, busy, onToggle, onAlias, onDeleteC
             value: draft,
             onChange: (event) => setDraft(event.value ?? ""),
             onSubmit: saveAlias,
-            style: { width: 200, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+            style: { width: 200, height: 24, color: theme.text, ...theme.input },
           }),
           h(
             "text",
@@ -240,7 +240,7 @@ export function ModelsPage({ api }) {
   const customKeys = new Set(custom.map((item) => `${item.providerAlias}/${item.id}`));
   const mediaCustom = custom.filter((item) => (item.kind || item.type || "llm") !== "llm");
 
-  const inputStyle = { width: 160, height: 28, color: theme.text, backgroundColor: theme.panelAlt };
+  const inputStyle = { width: 160, height: 28, color: theme.text, ...theme.input };
   const button = (testId, label, onClick, color) =>
     h(
       "text",
@@ -272,6 +272,7 @@ export function ModelsPage({ api }) {
         flexDirection: "column",
         backgroundColor: theme.surface,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },

@@ -108,6 +108,7 @@ export function ConsoleLogPage({ api }) {
           flexDirection: "column",
           flexGrow: 1,
           minHeight: 0,
+          overflowY: "scroll",
           backgroundColor: theme.panel,
           borderWidth: 1,
           borderColor: theme.border,

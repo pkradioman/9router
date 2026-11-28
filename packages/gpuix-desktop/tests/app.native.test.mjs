@@ -7,7 +7,9 @@ const gpuix = await import("@gpuix/react/testing");
 const { hasNativeTestRenderer, createTestRoot } = gpuix;
 const React = (await import("react")).default;
 const { App } = await import("../src/ui/App.mjs");
+import { makeFakeApi } from "./helpers/fake-api.mjs";
 const { STATUS } = await import("../src/ui/status-model.mjs");
+
 
 const h = React.createElement;
 
@@ -52,284 +54,22 @@ function mount(api) {
 }
 
 
-function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed = []) {
-  let keys = initial.map((item) => ({ ...item }));
-  let providers = providerSeed.map((item) => ({ ...item }));
-  let combos = comboSeed.map((item) => ({ ...item }));
-  let pools = poolSeed.map((item) => ({ ...item }));
-  let nodes = [];
-  let cooldowns = [
-    { provider: "openai", model: "gpt-4o", status: "cooldown", until: "2099-01-01T00:00:00.000Z", connectionId: "p1", connectionName: "Work" },
-    { provider: "anthropic", model: "__all", status: "unavailable", connectionId: "p2", connectionName: "Backup" },
-  ];
-  let fakePricing = {
-    openai: {
-      "gpt-4o": { input: 2.5, output: 10, cached: 1.25 },
-      "gpt-4o-mini": { input: 0.15, output: 0.6 },
-    },
-    anthropic: { "claude-sonnet": { input: 3, output: 15 } },
-  };
-  let fakeSettings = {
-    cavemanEnabled: false,
-    cavemanLevel: "full",
-    rtkEnabled: true,
-    requireLogin: true,
-    requireApiKey: true,
-    comboStrategies: {},
-    providerStrategies: {},
-    outboundProxyEnabled: false,
-    outboundProxyUrl: "",
-    outboundNoProxy: "",
-    tunnelDashboardAccess: false,
-    hasPassword: true,
-  };
-  let nextId = keys.length + 1;
-  const api = {
-    listKeys: vi.fn(async () => keys.map((item) => ({ ...item }))),
-    createKey: vi.fn(async (name) => {
-      const created = { id: `k${nextId++}`, name, key: `sk-new-${name}`, isActive: true };
-      keys = [created, ...keys];
-      return created;
-    }),
-    updateKey: vi.fn(async (id, patch) => {
-      keys = keys.map((item) => (item.id === id ? { ...item, ...patch } : item));
-      return { key: keys.find((item) => item.id === id) };
-    }),
-    deleteKey: vi.fn(async (id) => {
-      keys = keys.filter((item) => item.id !== id);
-      return {};
-    }),
-    listProviders: vi.fn(async () => providers.map((item) => ({ ...item }))),
-    updateProvider: vi.fn(async (id, patch) => {
-      providers = providers.map((item) => (item.id === id ? { ...item, ...patch } : item));
-      return { provider: providers.find((item) => item.id === id) };
-    }),
-    createProvider: vi.fn(async (body) => {
-      const created = { id: `p${providers.length + 1}`, name: body.name || body.provider, provider: body.provider, authType: "apikey", isActive: true };
-      providers = [created, ...providers];
-      return { provider: created };
-    }),
-    deleteProvider: vi.fn(async (id) => {
-      providers = providers.filter((item) => item.id !== id);
-      return { success: true };
-    }),
-    validateProvider: vi.fn(async (_provider, apiKey) =>
-      apiKey === "sk-bad" ? { valid: false, error: "invalid key" } : { valid: true }
-    ),
-    testProvider: vi.fn(async (id) => {
-      if (id === "p2") return { valid: false, error: "invalid key" };
-      return { valid: true, refreshed: false };
-    }),
-    getModels: vi.fn(async () => [
-      { provider: "openai", model: "gpt-4o", name: "GPT-4o", fullModel: "openai/gpt-4o", routedModel: "openai/gpt-4o", alias: "gpt-4o", caps: { vision: true } },
-      { provider: "openai", model: "gpt-4o-mini", name: "GPT-4o mini", fullModel: "openai/gpt-4o-mini", routedModel: "openai/gpt-4o-mini", alias: "mini", caps: {} },
-      { provider: "openai", model: "my-model", name: "my-model", fullModel: "openai/my-model", routedModel: "openai/my-model", alias: "my-model", caps: {} },
-      { provider: "anthropic", model: "claude-sonnet", name: "Claude Sonnet", fullModel: "anthropic/claude-sonnet", routedModel: "anthropic/claude-sonnet", alias: "claude-sonnet", caps: { reasoning: true } },
-    ]),
-    getDisabledModels: vi.fn(async () => ({ openai: ["gpt-4o-mini", "dall-e-3"] })),
-    disableModels: vi.fn(async () => ({ success: true })),
-    enableModel: vi.fn(async () => ({ success: true })),
-    enableAllModels: vi.fn(async () => ({ success: true })),
-    listCustomModels: vi.fn(async () => [
-      { providerAlias: "openai", id: "my-model", kind: "llm" },
-      { providerAlias: "openai", id: "gpt-image-x", kind: "image" },
-    ]),
-    addCustomModel: vi.fn(async () => ({ success: true })),
-    deleteCustomModel: vi.fn(async () => ({ success: true })),
-    setModelAlias: vi.fn(async () => ({ success: true })),
-    deleteModelAlias: vi.fn(async () => ({ success: true })),
-    testModel: vi.fn(async (model) =>
-      model.includes("mini") ? { ok: false, error: "unreachable" } : { ok: true }
-    ),
-    getUsageStats: vi.fn(async (period) => ({
-      totalRequests: period === "7d" ? 42 : 7,
-      totalPromptTokens: 1000,
-      totalCompletionTokens: 200,
-      totalCost: 0.1234,
-      totalCachedTokens: 400,
-      byProvider: { openai: { requests: 40, promptTokens: 900, completionTokens: 180, cost: 0.11 } },
-      byModel: {
-        "gpt-4o (openai)": { requests: 30, promptTokens: 700, completionTokens: 140, cost: 0.09 },
-        "claude-sonnet (anthropic)": { requests: 12, promptTokens: 300, completionTokens: 40, cost: 0.03 },
-      },
-      recentRequests: [
-        { timestamp: "2026-11-28T01:00:00Z", model: "gpt-4o", provider: "openai", promptTokens: 10, completionTokens: 5 },
-      ],
-    })),
-    getUsageChart: vi.fn(async () => [
-      { label: "Mon", tokens: 40, cost: 0, requests: 1 },
-      { label: "Tue", tokens: 120, cost: 0, requests: 2 },
-    ]),
-    listCombos: vi.fn(async () => combos.map((item) => ({ ...item }))),
-    createCombo: vi.fn(async (name, kind = null) => {
-      const created = { id: `c${combos.length + 1}`, name, kind: kind || null, models: [] };
-      combos = [created, ...combos];
-      return created;
-    }),
-    updateCombo: vi.fn(async (id, patch) => {
-      combos = combos.map((item) => (item.id === id ? { ...item, ...patch } : item));
-      return { combo: combos.find((item) => item.id === id) };
-    }),
-    getComboPresets: vi.fn(async (source) => ({
-      source,
-      items: [
-        { name: `${source}-fast`, models: ["openai/gpt-4o"], exists: false },
-        { name: `${source}-old`, models: [], exists: true },
-      ],
-      toCreate: 1,
-      toSkip: 1,
-    })),
-    createComboPresets: vi.fn(async (source) => ({ created: [`${source}-fast`] })),
-    deleteCombo: vi.fn(async (id) => {
-      combos = combos.filter((item) => item.id !== id);
-      return { success: true };
-    }),
-    getConsoleLogs: vi.fn(async () => ["[INFO] gateway booted", "[ERROR] upstream refused"]),
-    clearConsoleLogs: vi.fn(async () => ({ success: true })),
-    getSettings: vi.fn(async () => ({ ...fakeSettings })),
-    getTunnelStatus: vi.fn(async () => ({
-      tunnel: { publicUrl: "https://probe.trycloudflare.com" },
-      tailscale: null,
-      download: {},
-    })),
-    patchSettings: vi.fn(async (patch) => {
-      fakeSettings = { ...fakeSettings, ...patch };
-      return fakeSettings;
-    }),
-    testProxyUrl: vi.fn(async () => ({ ok: true, status: 200, elapsedMs: 12 })),
-    getTokenSaverStats: vi.fn(async () => ({
-      rtk: { hitRequests: 3, bytesSaved: 1200 },
-      caveman: { onRequests: 5, offRequests: 1 },
-    })),
-    getHeadroomStatus: vi.fn(async () => ({
-      installed: true,
-      running: false,
-      version: "0.9.1",
-      url: "http://127.0.0.1:5757",
-    })),
-    getDatabaseBackup: vi.fn(async () => ({ version: 1, marker: "db" })),
-    importDatabase: vi.fn(async () => ({ success: true })),
-    getConnectionUsage: vi.fn(async (id) => {
-      if (id === "p2") throw new Error("expired token");
-      if (id === "p3") return { quotas: { day: { used: 95, total: 100 } } };
-      return {
-        quotas: {
-          five_hour: { used: 10, total: 100, resetAt: "2026-11-28T08:00:00.000Z" },
-          seven_day: { used: 40, total: 200 },
-        },
-      };
-    }),
-    getUsageProviders: vi.fn(async () => [
-      { id: "openai", name: "OpenAI" },
-      { id: "anthropic", name: "Anthropic" },
-    ]),
-    createChatCompletion: vi.fn(async ({ model }) => ({
-      choices: [{ message: { role: "assistant", content: `reply from ${model}` } }],
-    })),
-    streamChatCompletion: vi.fn(async ({ model, onDelta }) => {
-      onDelta("reply from ");
-      onDelta(model);
-      return {};
-    }),
-    getModelAvailability: vi.fn(async () => ({
-      models: cooldowns.map((item) => ({ ...item })),
-      unavailableCount: cooldowns.length,
-    })),
-    clearModelCooldown: vi.fn(async (provider, model) => {
-      cooldowns = cooldowns.filter((item) => !(item.provider === provider && item.model === model));
-      return { ok: true };
-    }),
-    getPricing: vi.fn(async () => JSON.parse(JSON.stringify(fakePricing))),
-    patchPricing: vi.fn(async (payload) => {
-      for (const [provider, models] of Object.entries(payload)) {
-        fakePricing[provider] = { ...(fakePricing[provider] || {}) };
-        for (const [model, entry] of Object.entries(models)) fakePricing[provider][model] = { ...entry };
-      }
-      return fakePricing;
-    }),
-    resetPricing: vi.fn(async (provider = null, model = null) => {
-      if (!provider) fakePricing = {};
-      else if (!model) delete fakePricing[provider];
-      else if (fakePricing[provider]) {
-        delete fakePricing[provider][model];
-        if (Object.keys(fakePricing[provider]).length === 0) delete fakePricing[provider];
-      }
-      return fakePricing;
-    }),
-    listProxyPools: vi.fn(async () => pools.map((item) => ({ ...item }))),
-    createProxyPool: vi.fn(async (pool) => {
-      const created = { id: `pp${pools.length + 1}`, isActive: true, type: "http", ...pool };
-      pools = [created, ...pools];
-      return { proxyPool: created };
-    }),
-    updateProxyPool: vi.fn(async (id, patch) => {
-      pools = pools.map((item) => (item.id === id ? { ...item, ...patch } : item));
-      return { proxyPool: pools.find((item) => item.id === id) };
-    }),
-    deleteProxyPool: vi.fn(async (id) => {
-      pools = pools.filter((item) => item.id !== id);
-      return { success: true };
-    }),
-    testProxyPool: vi.fn(async (id) => ({
-      ok: id !== "pp2",
-      status: id === "pp2" ? 502 : 200,
-      error: id === "pp2" ? "connect ECONNREFUSED" : null,
-      elapsedMs: 42,
-      testedAt: "2026-11-28T02:00:00.000Z",
-    })),
-    getCliToolStatuses: vi.fn(async () => ({
-      claude: { installed: true, has9Router: true },
-      codex: { installed: true, has9Router: false },
-      droid: { installed: false },
-      hermes: null,
-    })),
-    getTranslatorFile: vi.fn(async (file) => `{"file":"${file}","marker":"body"}`),
-    saveTranslatorFile: vi.fn(async () => ({ success: true })),
-    listProviderNodes: vi.fn(async () => nodes.map((node) => ({ ...node }))),
-    createProviderNode: vi.fn(async (body) => {
-      const prefix =
-        body.type === "anthropic-compatible"
-          ? "anthropic-compatible"
-          : body.type === "custom-embedding"
-            ? "custom-embedding"
-            : `openai-compatible-${body.apiType || "chat"}`;
-      const created = { id: `${prefix}-${nodes.length + 1}`, apiType: "chat", ...body };
-      nodes = [created, ...nodes];
-      return { node: created };
-    }),
-    deleteProviderNode: vi.fn(async (id) => {
-      nodes = nodes.filter((node) => node.id !== id);
-      return { success: true };
-    }),
-    updateProviderNode: vi.fn(async (id, patch) => {
-      nodes = nodes.map((node) => (node.id === id ? { ...node, ...patch } : node));
-      return { node: nodes.find((node) => node.id === id) };
-    }),
-    getRequestDetails: vi.fn(async (page, pageSize) => ({
-      details: [
-        {
-          id: `d${page}`,
-          model: page === 1 ? "gpt-4o" : "claude-sonnet",
-          provider: "openai",
-          status: 200,
-          timestamp: "2026-11-28T02:00:00.000Z",
-          tokens: { prompt_tokens: 1200, completion_tokens: 340, cached_tokens: 800, cache_creation_input_tokens: 64 },
-          latency: { ttft: 210, total: 940 },
-          cost: 0.0042,
-          connectionId: "p1",
-        },
-      ],
-      pagination: { page, pageSize, totalItems: 21, totalPages: 2, hasNext: page < 2, hasPrev: page > 1 },
-    })),
-  };
-  api.snapshot = () => keys;
-  return api;
-}
+const createFakeApi = (...args) => makeFakeApi(vi.fn, ...args);
+
+// The test window stretches to the primary display (864px tall here) whatever
+// size is requested, and scrollable pages can put a target below that fold.
+// Scroll it into view first, then click the re-measured bounds.
+const WINDOW_BOTTOM = 850;
 
 function click(renderer, testId) {
   const element = renderer.findByTestId(testId);
   expect(element).toBeTruthy();
-  const bounds = renderer.getElementBounds(element.id);
+  let bounds = renderer.getElementBounds(element.id);
+  if (bounds.y + bounds.height > WINDOW_BOTTOM || bounds.y < 0) {
+    renderer.scrollIntoView(element.id);
+    renderer.flush();
+    bounds = renderer.getElementBounds(element.id);
+  }
   renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
 }
 

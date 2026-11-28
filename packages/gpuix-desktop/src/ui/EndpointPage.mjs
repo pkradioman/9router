@@ -7,29 +7,9 @@
 // native yet and are called out as pending instead of being faked.
 import React from "react";
 import { theme } from "./theme.mjs";
+import { Button, EmptyState, Field, InlineError, Section, SectionTitle } from "./primitives.mjs";
 
 const h = React.createElement;
-
-function Section({ title, children, testId }) {
-  return h(
-    "div",
-    {
-      testId,
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        backgroundColor: theme.panel,
-        borderWidth: 1,
-        borderColor: theme.border,
-        borderRadius: 10,
-        padding: 16,
-        gap: 10,
-      },
-    },
-    h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, title),
-    children
-  );
-}
 
 function EndpointRow({ label, value, testId }) {
   return h(
@@ -117,7 +97,7 @@ function KeyRow({ item, onToggle, onDelete, onAccess, busy }) {
           testId: `key-delete-${item.id}`,
           role: "button",
           onClick: () => (busy ? null : onDelete(item)),
-          style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
+          style: { color: theme.bad, fontSize: 11, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.bad } },
         },
         "Delete"
       )
@@ -136,14 +116,15 @@ function KeyRow({ item, onToggle, onDelete, onAccess, busy }) {
             },
             restricted ? "Restricted: on" : "Restricted: off"
           ),
-          h("input", {
+          h(Field, {
             testId: `key-allow-${item.id}`,
             "aria-label": "Allowed models",
             value: allow,
             onChange: (event) => setAllow(event.value ?? ""),
             onSubmit: saveAccess,
             placeholder: "allowed model IDs, comma separated",
-            style: { width: 320, height: 28, color: theme.text, backgroundColor: theme.panelAlt },
+            width: 320,
+            height: 28,
           }),
           h(
             "text",
@@ -247,15 +228,17 @@ export function EndpointPage({ api, status, onRefresh }) {
       style: {
         display: "flex",
         flexDirection: "column",
-        backgroundColor: theme.surface,
+        backgroundColor: theme.canvas,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },
     },
     h(
       Section,
-      { title: "Endpoint", testId: "endpoint-section" },
+      { testId: "endpoint-section" },
+      h(SectionTitle, null, "Endpoint"),
       h(EndpointRow, { label: "Base URL", value: status.baseUrl, testId: "endpoint-base-url" }),
       h(EndpointRow, { label: "OpenAI API", value: `${status.baseUrl}/v1`, testId: "endpoint-openai" }),
       h(EndpointRow, { label: "Health", value: `${status.baseUrl}/api/health`, testId: "endpoint-health" }),
@@ -267,13 +250,8 @@ export function EndpointPage({ api, status, onRefresh }) {
         "div",
         { style: { display: "flex", flexDirection: "row", gap: 16, alignItems: "center", paddingTop: 4 } },
         h(
-          "text",
-          {
-            testId: "endpoint-refresh",
-            role: "button",
-            onClick: onRefresh,
-            style: { color: theme.ok, fontSize: 12, cursor: "pointer", hover: { color: theme.text } },
-          },
+          Button,
+          { variant: "secondary", testId: "endpoint-refresh", onClick: onRefresh },
           "Refresh status"
         ),
         h("text", { style: { color: theme.muted, fontSize: 11 } }, `Data: ${status.dataDir}`)
@@ -281,7 +259,8 @@ export function EndpointPage({ api, status, onRefresh }) {
     ),
     h(
       Section,
-      { title: "Access", testId: "access-section" },
+      { testId: "access-section" },
+      h(SectionTitle, null, "Access"),
       h(
         "div",
         { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
@@ -320,46 +299,28 @@ export function EndpointPage({ api, status, onRefresh }) {
     ),
     h(
       Section,
-      { title: "API keys", testId: "keys-section" },
+      { testId: "keys-section" },
+      h(SectionTitle, null, "API keys"),
       h(
         "div",
         { style: { display: "flex", flexDirection: "row", gap: 12, alignItems: "center" } },
-        h("input", {
+        h(Field, {
           testId: "key-name-input",
           "aria-label": "New API key name",
           value: draftName,
           onChange: (event) => setDraftName(event.value ?? ""),
           onSubmit: create,
           placeholder: "Key name",
-          style: { width: 220, height: 32, color: theme.text, backgroundColor: theme.panelAlt },
+          width: 220,
+          height: 32,
         }),
-        h(
-          "text",
-          {
-            testId: "key-create",
-            role: "button",
-            onClick: busy ? () => {} : create,
-            style: {
-              paddingTop: 6,
-              paddingBottom: 6,
-              paddingLeft: 12,
-              paddingRight: 12,
-              borderRadius: 8,
-              backgroundColor: theme.panelAlt,
-              color: busy ? theme.muted : theme.text,
-              fontSize: 12,
-              cursor: busy ? "default" : "pointer",
-              hover: busy ? {} : { backgroundColor: "#2e2e33" },
-            },
-          },
-          "Create key"
-        )
+        h(Button, { variant: "primary", testId: "key-create", onClick: busy ? null : create }, "Create key")
       ),
-      error ? h("text", { testId: "keys-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
+      error ? h(InlineError, { testId: "keys-error" }, error) : null,
       keys === null
         ? h("text", { testId: "keys-loading", style: { color: theme.muted, fontSize: 12 } }, "Loading keys...")
         : keys.length === 0
-          ? h("text", { testId: "keys-empty", style: { color: theme.muted, fontSize: 12 } }, "No API keys yet.")
+          ? h(EmptyState, { testId: "keys-empty" }, "No API keys yet.")
           : h(
               "div",
               { style: { display: "flex", flexDirection: "column" } },

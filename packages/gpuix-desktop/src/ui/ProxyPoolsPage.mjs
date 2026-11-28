@@ -142,7 +142,7 @@ function PoolRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
             "aria-label": "Pool name",
             value: draftName,
             onChange: (event) => setDraftName(event.value ?? ""),
-            style: { width: 150, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+            style: { width: 150, height: 24, color: theme.text, ...theme.input },
           }),
           h("input", {
             testId: `pool-url-edit-${item.id}`,
@@ -150,7 +150,7 @@ function PoolRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
             value: draftUrl,
             onChange: (event) => setDraftUrl(event.value ?? ""),
             onSubmit: save,
-            style: { width: 280, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+            style: { width: 280, height: 24, color: theme.text, ...theme.input },
           }),
           h(
             "text",
@@ -235,7 +235,7 @@ export function ProxyPoolsPage({ api }) {
   const input = (props) =>
     h("input", {
       ...props,
-      style: { width: 200, height: 32, color: theme.text, backgroundColor: theme.panelAlt },
+      style: { width: 200, height: 32, color: theme.text, ...theme.input },
     });
 
   return h(
@@ -246,6 +246,7 @@ export function ProxyPoolsPage({ api }) {
         flexDirection: "column",
         backgroundColor: theme.surface,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },

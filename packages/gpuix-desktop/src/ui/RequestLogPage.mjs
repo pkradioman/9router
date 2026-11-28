@@ -118,7 +118,7 @@ export function RequestLogPage({ api }) {
         value: drafts.provider,
         onChange: (event) => setDrafts((value) => ({ ...value, provider: event.value ?? "" })),
         placeholder: "provider",
-        style: { width: 140, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { width: 140, height: 26, color: theme.text, ...theme.input },
       }),
       h("input", {
         testId: "request-log-model",
@@ -126,7 +126,7 @@ export function RequestLogPage({ api }) {
         value: drafts.model,
         onChange: (event) => setDrafts((value) => ({ ...value, model: event.value ?? "" })),
         placeholder: "model",
-        style: { width: 170, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { width: 170, height: 26, color: theme.text, ...theme.input },
       }),
       h("input", {
         testId: "request-log-status",
@@ -135,7 +135,7 @@ export function RequestLogPage({ api }) {
         onChange: (event) => setDrafts((value) => ({ ...value, status: event.value ?? "" })),
         onSubmit: applyFilters,
         placeholder: "status",
-        style: { width: 90, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { width: 90, height: 26, color: theme.text, ...theme.input },
       }),
       h("input", {
         testId: "request-log-start",
@@ -143,7 +143,7 @@ export function RequestLogPage({ api }) {
         value: drafts.startDate,
         onChange: (event) => setDrafts((value) => ({ ...value, startDate: event.value ?? "" })),
         placeholder: "from YYYY-MM-DD",
-        style: { width: 130, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { width: 130, height: 26, color: theme.text, ...theme.input },
       }),
       h("input", {
         testId: "request-log-end",
@@ -152,7 +152,7 @@ export function RequestLogPage({ api }) {
         onChange: (event) => setDrafts((value) => ({ ...value, endDate: event.value ?? "" })),
         onSubmit: applyFilters,
         placeholder: "to YYYY-MM-DD",
-        style: { width: 130, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { width: 130, height: 26, color: theme.text, ...theme.input },
       }),
       h(
         "text",
@@ -235,6 +235,7 @@ export function RequestLogPage({ api }) {
           flexDirection: "column",
           flexGrow: 1,
           minHeight: 0,
+          overflowY: "scroll",
           backgroundColor: theme.panel,
           borderWidth: 1,
           borderColor: theme.border,

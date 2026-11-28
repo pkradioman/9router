@@ -179,7 +179,7 @@ export function ProfilePage({ api, status }) {
         "aria-label": label,
         value,
         onChange: (event) => onChange(event.value ?? ""),
-        style: { width: 200, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { width: 200, height: 26, color: theme.text, ...theme.input },
       })
     );
 
@@ -218,6 +218,7 @@ export function ProfilePage({ api, status }) {
         flexDirection: "column",
         backgroundColor: theme.surface,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },

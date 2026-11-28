@@ -155,6 +155,7 @@ export function ChatPage({ api }) {
     h(
       "text",
       {
+        key: testId,
         testId,
         role: "button",
         onClick: busy ? null : onClick,
@@ -219,7 +220,7 @@ export function ChatPage({ api }) {
         value: modelFilter,
         onChange: (event) => setModelFilter(event.value ?? ""),
         placeholder: "filter models",
-        style: { width: 180, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { width: 180, height: 26, color: theme.text, ...theme.input },
       }),
       ...matchingModels.map((item) =>
         chip(
@@ -257,6 +258,7 @@ export function ChatPage({ api }) {
           flexDirection: "column",
           flexGrow: 1,
           minHeight: 0,
+          overflowY: "scroll",
           backgroundColor: theme.panel,
           borderWidth: 1,
           borderColor: theme.border,
@@ -306,7 +308,7 @@ export function ChatPage({ api }) {
         value: system,
         onChange: (event) => setSystem(event.value ?? ""),
         placeholder: "system prompt (optional)",
-        style: { width: 260, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { width: 260, height: 26, color: theme.text, ...theme.input },
       }),
       h("input", {
         testId: "chat-input",
@@ -315,7 +317,7 @@ export function ChatPage({ api }) {
         onChange: (event) => setDraft(event.value ?? ""),
         onSubmit: send,
         placeholder: "Message",
-        style: { flexGrow: 1, minWidth: 220, height: 30, color: theme.text, backgroundColor: theme.panelAlt },
+        style: { flexGrow: 1, minWidth: 220, height: 30, color: theme.text, ...theme.input },
       }),
       h(
         "text",

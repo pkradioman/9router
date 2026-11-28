@@ -73,6 +73,7 @@ export function TranslatorPage({ api }) {
         flexDirection: "column",
         backgroundColor: theme.surface,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 12,
       },
@@ -160,7 +161,7 @@ export function TranslatorPage({ api }) {
               value: draft,
               onChange: (event) => setDraft(event.value ?? ""),
               onSubmit: save,
-              style: { height: 26, color: theme.text, backgroundColor: theme.panelAlt, fontFamily: "Consolas" },
+              style: { height: 26, color: theme.text, ...theme.input, fontFamily: "Consolas" },
             })
           : content === ""
             ? h("text", { testId: "translator-empty", style: { color: theme.muted, fontSize: 11 } }, "No captured content.")

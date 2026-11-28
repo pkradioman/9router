@@ -30,6 +30,7 @@ export function SkillsPage() {
         flexDirection: "column",
         backgroundColor: theme.surface,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },

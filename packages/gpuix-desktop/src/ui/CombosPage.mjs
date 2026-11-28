@@ -149,7 +149,7 @@ function ComboRow({ item, strategy, onDelete, onSave, onStrategy, busy }) {
               "aria-label": "Combo name",
               value: draftName,
               onChange: (event) => setDraftName(event.value ?? ""),
-              style: { width: 200, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+              style: { width: 200, height: 26, color: theme.text, ...theme.input },
             }),
             action(`combo-save-${item.id}`, "Save", save, theme.ok),
             action(`combo-cancel-${item.id}`, "Cancel", () => setEditing(false))
@@ -178,7 +178,7 @@ function ComboRow({ item, strategy, onDelete, onSave, onStrategy, busy }) {
                   onChange: (event) => setDraftJudge(event.value ?? ""),
                   onSubmit: saveJudge,
                   placeholder: "judge model",
-                  style: { width: 220, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                  style: { width: 220, height: 24, color: theme.text, ...theme.input },
                 }),
                 action(`combo-judge-save-${item.id}`, "Save judge", saveJudge, theme.ok)
               )
@@ -209,7 +209,7 @@ function ComboRow({ item, strategy, onDelete, onSave, onStrategy, busy }) {
               onChange: (event) => setNewModel(event.value ?? ""),
               onSubmit: addModel,
               placeholder: "provider/model",
-              style: { width: 220, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+              style: { width: 220, height: 26, color: theme.text, ...theme.input },
             }),
             action(`combo-model-add-${item.id}`, "Add model", addModel, theme.ok)
           )
@@ -332,6 +332,7 @@ export function CombosPage({ api }) {
         flexDirection: "column",
         backgroundColor: theme.surface,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },
@@ -362,7 +363,7 @@ export function CombosPage({ api }) {
           onChange: (event) => setDraftName(event.value ?? ""),
           onSubmit: create,
           placeholder: "Combo name",
-          style: { width: 220, height: 32, color: theme.text, backgroundColor: theme.panelAlt },
+          style: { width: 220, height: 32, color: theme.text, ...theme.input },
         }),
         h(
           "text",
@@ -550,7 +551,7 @@ export function CombosPage({ api }) {
                 value: capDraft[cap.key] || "",
                 onChange: (event) =>
                   setCapDraft((value) => ({ ...value, [cap.key]: event.value ?? "" })),
-                style: { width: 220, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                style: { width: 220, height: 24, color: theme.text, ...theme.input },
               }),
               chip(
                 `cap-${cap.key}-add`,

@@ -2,19 +2,9 @@
 // needs no JSX transform at runtime; GPUIX host elements are plain strings.
 import React from "react";
 import { describeStatus, STATUS } from "./status-model.mjs";
+import { theme } from "./theme.mjs";
 
 const h = React.createElement;
-
-const theme = {
-  surface: "#0b0b0c",
-  panel: "#161618",
-  border: "#2a2a2e",
-  text: "#e6e6e9",
-  muted: "#9a9aa3",
-  ok: "#3ecf8e",
-  warn: "#f0b429",
-  bad: "#f16c6c",
-};
 
 function Row({ label, value, testId, color }) {
   return h(
@@ -41,6 +31,7 @@ export function StatusPanel({ status, onRefresh }) {
         flexDirection: "column",
         backgroundColor: theme.surface,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },
@@ -110,9 +101,9 @@ export function StatusPanel({ status, onRefresh }) {
           paddingLeft: 14,
           paddingRight: 14,
           borderRadius: 8,
-          backgroundColor: "#232326",
+          backgroundColor: theme.panelAlt,
           cursor: "pointer",
-          hover: { backgroundColor: "#2e2e33" },
+          hover: { backgroundColor: theme.panelAlt },
         },
       },
       h("text", { style: { color: theme.text, fontSize: 12 } }, "Refresh status")

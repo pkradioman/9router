@@ -6,6 +6,7 @@
 // /api/providers rows; custom embedding nodes join the embedding kind.
 import React from "react";
 import { theme } from "./theme.mjs";
+import { Button, Chip, EmptyState, Field, InlineError, Section, SectionTitle } from "./primitives.mjs";
 import { MEDIA_PROVIDERS, MEDIA_MODELS } from "./media-providers.generated.mjs";
 
 const h = React.createElement;
@@ -204,21 +205,7 @@ export function MediaProvidersPage({ api, status }) {
   const entries = [...custom, ...base];
 
   const chip = (testId, label, onClick, active, count) =>
-    h(
-      "text",
-      {
-        testId,
-        role: "button",
-        onClick: busy ? null : onClick,
-        style: {
-          color: busy ? theme.muted : active ? theme.ok : theme.muted,
-          fontSize: 11,
-          cursor: busy ? "default" : "pointer",
-          hover: busy ? {} : { color: theme.text },
-        },
-      },
-      count === undefined ? label : `${label} (${count})`
-    );
+    h(Chip, { testId, active, onClick: busy ? null : onClick }, count === undefined ? label : `${label} (${count})`);
 
   return h(
     "div",
@@ -226,8 +213,9 @@ export function MediaProvidersPage({ api, status }) {
       style: {
         display: "flex",
         flexDirection: "column",
-        backgroundColor: theme.surface,
+        backgroundColor: theme.canvas,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },
@@ -257,23 +245,12 @@ export function MediaProvidersPage({ api, status }) {
         )
       )
     ),
-    error ? h("text", { testId: "media-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
+    error ? h(InlineError, { testId: "media-error" }, error) : null,
     h(
-      "div",
+      Section,
       {
         testId: "media-section",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          minHeight: 0,
-          backgroundColor: theme.panel,
-          borderWidth: 1,
-          borderColor: theme.border,
-          borderRadius: 10,
-          padding: 16,
-          gap: 4,
-        },
+        style: { gap: 4 },
       },
       h(
         "div",
@@ -292,11 +269,7 @@ export function MediaProvidersPage({ api, status }) {
       connections === null
         ? h("text", { testId: "media-loading", style: { color: theme.muted, fontSize: 12 } }, "Loading providers...")
         : entries.length === 0
-          ? h(
-              "text",
-              { testId: "media-empty", style: { color: theme.muted, fontSize: 11 } },
-              "No providers support this kind yet."
-            )
+          ? h(EmptyState, { testId: "media-empty" }, "No providers support this kind yet.")
           : entries.map((entry) => {
               const conns = (connections || []).filter((conn) => conn.provider === entry.id);
               const { active, errors, allDisabled } = connectionState(conns);
@@ -478,45 +451,32 @@ export function MediaProvidersPage({ api, status }) {
     ),
     COMBO_BASE[kind]
       ? h(
-          "div",
+          Section,
           {
             testId: "media-combos",
-            style: {
-              display: "flex",
-              flexDirection: "column",
-              backgroundColor: theme.panel,
-              borderWidth: 1,
-              borderColor: theme.border,
-              borderRadius: 10,
-              padding: 16,
-              gap: 6,
-            },
+            style: { gap: 6 },
           },
           h(
             "div",
             { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
             h(
-              "text",
-              { style: { color: theme.text, fontSize: 12, fontWeight: 600, flexGrow: 1 } },
+              SectionTitle,
+              { style: { flexGrow: 1 } },
               `Combos — ${MEDIA_KINDS.find((entry) => entry.id === kind)?.label || kind}`
             ),
             h(
-              "text",
+              Button,
               {
+                variant: "ghost",
                 testId: "media-create-combo",
-                role: "button",
                 onClick: busy ? null : () => createComboForKind(kind),
-                style: { color: theme.ok, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                style: { height: 26, fontSize: 11 },
               },
               "Create combo"
             )
           ),
           kindCombos.length === 0
-            ? h(
-                "text",
-                { testId: "media-combos-empty", style: { color: theme.muted, fontSize: 11 } },
-                "No combos for this kind yet."
-              )
+            ? h(EmptyState, { testId: "media-combos-empty" }, "No combos for this kind yet.")
             : kindCombos.map((combo) => {
                 const models = (combo.models || []).map(String);
                 const open = openCombo === combo.id;
@@ -530,13 +490,15 @@ export function MediaProvidersPage({ api, status }) {
                     "div",
                     { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 } },
                     editingCombo === combo.id
-                      ? h("input", {
+                      ? h(Field, {
                           testId: `media-combo-name-${combo.id}`,
                           "aria-label": "Combo name",
                           value: comboDraft,
                           onChange: (event) => setComboDraft(event.value ?? ""),
                           onSubmit: () => renameCombo(combo),
-                          style: { width: 200, height: 24, color: theme.text, backgroundColor: theme.panelAlt, flexGrow: 1 },
+                          width: 200,
+                          height: 24,
+                          style: { flexGrow: 1 },
                         })
                       : h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, combo.name),
                     editingCombo === combo.id
@@ -639,28 +601,19 @@ export function MediaProvidersPage({ api, status }) {
         )
       : null,
     h(
-      "div",
+      Section,
       {
         testId: "media-example",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: theme.panel,
-          borderWidth: 1,
-          borderColor: theme.border,
-          borderRadius: 10,
-          padding: 16,
-          gap: 6,
-        },
+        style: { gap: 6 },
       },
       h(
-        "text",
-        { style: { color: theme.text, fontSize: 12, fontWeight: 600 } },
+        SectionTitle,
+        null,
         `Example request — ${MEDIA_KINDS.find((entry) => entry.id === kind)?.label || kind}`
       ),
       h(
         "text",
-        { testId: "media-example-endpoint", style: { color: theme.ok, fontSize: 11, fontFamily: "Consolas" } },
+        { testId: "media-example-endpoint", style: { color: theme.info, fontSize: 11, fontFamily: "Consolas" } },
         `POST ${(status && status.baseUrl) || "http://127.0.0.1:20129"}${MEDIA_KINDS.find((entry) => entry.id === kind)?.endpoint || ""}`
       ),
       ...(() => {

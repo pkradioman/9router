@@ -115,7 +115,7 @@ function PricingRow({ provider, model, rates, busy, onSave, onReset }) {
               onChange: (event) => setDrafts((value) => ({ ...value, [key]: event.value ?? "" })),
               onSubmit: save,
               placeholder: key,
-              style: { width: 82, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+              style: { width: 82, height: 24, color: theme.text, ...theme.input },
             })
           ),
           h(
@@ -253,6 +253,7 @@ export function PricingPage({ api }) {
         flexDirection: "column",
         backgroundColor: theme.surface,
         height: "100%",
+        overflowY: "scroll",
         padding: 24,
         gap: 16,
       },
@@ -300,7 +301,7 @@ export function PricingPage({ api }) {
               value: providerFilter,
               onChange: (event) => setProviderFilter(event.value ?? ""),
               placeholder: "Filter providers",
-              style: { width: 240, height: 28, color: theme.text, backgroundColor: theme.panelAlt },
+              style: { width: 240, height: 28, color: theme.text, ...theme.input },
             }),
             h(
               "div",
@@ -354,7 +355,7 @@ export function PricingPage({ api }) {
                       value: modelFilter,
                       onChange: (event) => setModelFilter(event.value ?? ""),
                       placeholder: "Filter models",
-                      style: { width: 200, height: 26, color: theme.text, backgroundColor: theme.panelAlt },
+                      style: { width: 200, height: 26, color: theme.text, ...theme.input },
                     }),
                     h("text", { style: { color: theme.muted, fontSize: 10 } }, `${shownModels.length} of ${models.length}`)
                   ),
