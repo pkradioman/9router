@@ -432,6 +432,22 @@ describe.runIf(canRun)("isolated gateway integration", () => {
       expect((await call(`/api/provider-nodes/${encodeURIComponent(created.body.node.id)}`, { method: "DELETE" })).status).toBe(200);
     }
 
+    // Auto-ping settings the Providers page writes (claude/codex only).
+    const pingSave = await call("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({
+        claudeAutoPing: {
+          connections: { "probe-conn": false },
+          schedules: { "probe-conn": { enabled: true, anchor: "09:30", timezone: "UTC", windowHours: 5, slotsPerDay: 3 } },
+        },
+      }),
+    });
+    expect(pingSave.status).toBe(200);
+    expect((await call("/api/settings")).body.claudeAutoPing.schedules["probe-conn"].slotsPerDay).toBe(3);
+    expect(
+      (await call("/api/settings", { method: "PATCH", body: JSON.stringify({ claudeAutoPing: {} }) })).status
+    ).toBe(200);
+
     // Dashboard password: hashed by the gateway and written to the isolated DB.
     // This runs last because a fresh isolated DB has no prior password to restore;
     // the fixture directory is disposable.

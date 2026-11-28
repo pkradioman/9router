@@ -470,6 +470,39 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(paintedAfter).toContain("Disabled");
   });
 
+  it("sets auto-ping modes and an anchored schedule for oauth connections", async () => {
+    const api = createFakeApi([], [
+      { id: "p1", name: "Claude", provider: "claude", authType: "oauth", isActive: true },
+    ]);
+    const root = mount(api);
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Auto-ping:");
+
+    click(root.renderer, "provider-autoping-schedule-p1");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      claudeAutoPing: {
+        connections: { p1: false },
+        schedules: { p1: { enabled: true, anchor: "09:30", timezone: expect.any(String), windowHours: 5, slotsPerDay: 3 } },
+      },
+    });
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("09:30 / 14:30 / 19:30");
+    expect(painted).toContain("Save schedule");
+
+    click(root.renderer, "provider-autoping-reset-p1");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({
+      claudeAutoPing: {
+        connections: { p1: true },
+        schedules: { p1: { enabled: false } },
+      },
+    });
+  });
+
   it("edits a provider connection's name, model, priority and proxy binding", async () => {
     const api = createFakeApi([], [
       {

@@ -4,10 +4,18 @@
 // OAuth flows, proxy pools and model tests are not native yet and stay pending.
 import React from "react";
 import { theme } from "./theme.mjs";
+import {
+  PING_SCHEDULE_DEFAULTS,
+  getLocalTimezone,
+  getScheduleSlotLabels,
+} from "../../../../src/shared/services/quotaPingSchedule.js";
 
 const h = React.createElement;
 
-function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
+// Same settings keys as the dashboard (AUTO_PING_SETTINGS_KEYS).
+export const AUTO_PING_KEYS = { claude: "claudeAutoPing", codex: "codexAutoPing" };
+
+function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy, autoPing, onSaveAutoPing }) {
   const [editing, setEditing] = React.useState(false);
   const [testState, setTestState] = React.useState({ phase: "idle", message: "" });
   const [draftName, setDraftName] = React.useState(item.name || "");
@@ -16,6 +24,18 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
     item.priority === undefined || item.priority === null ? "" : String(item.priority)
   );
   const [draftProxy, setDraftProxy] = React.useState(item.providerSpecificData?.proxyPoolId || "");
+  const schedule = autoPing && autoPing.schedules ? autoPing.schedules[item.id] : null;
+  const reactiveOn = Boolean(autoPing && autoPing.connections && autoPing.connections[item.id] === true);
+  const scheduleOn = Boolean(schedule && schedule.enabled === true);
+  const [pingAnchor, setPingAnchor] = React.useState((schedule && schedule.anchor) || PING_SCHEDULE_DEFAULTS.anchor);
+  const [pingWindow, setPingWindow] = React.useState(String((schedule && schedule.windowHours) || PING_SCHEDULE_DEFAULTS.windowHours));
+  const [pingSlots, setPingSlots] = React.useState(String((schedule && schedule.slotsPerDay) || PING_SCHEDULE_DEFAULTS.slotsPerDay));
+  React.useEffect(() => {
+    if (!schedule) return;
+    setPingAnchor(schedule.anchor || PING_SCHEDULE_DEFAULTS.anchor);
+    setPingWindow(String(schedule.windowHours || PING_SCHEDULE_DEFAULTS.windowHours));
+    setPingSlots(String(schedule.slotsPerDay || PING_SCHEDULE_DEFAULTS.slotsPerDay));
+  }, [schedule]);
 
   const save = () => {
     const patch = { name: draftName.trim() || item.name };
@@ -142,6 +162,105 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
           },
           testState.message
         )
+      : null,
+    autoPing && item.authType === "oauth"
+      ? (() => {
+          const pingChip = (testId, label, active, onClick) =>
+            h(
+              "text",
+              {
+                testId,
+                role: "button",
+                onClick: busy ? null : onClick,
+                style: {
+                  color: busy ? theme.muted : active ? theme.ok : theme.muted,
+                  fontSize: 10,
+                  cursor: busy ? "default" : "pointer",
+                  hover: busy ? {} : { color: theme.text },
+                },
+              },
+              label
+            );
+          const saveSchedule = () => {
+            if (!pingAnchor.trim() || !Number(pingWindow) || !Number(pingSlots)) return;
+            onSaveAutoPing(item.id, {
+              reactive: false,
+              schedule: {
+                enabled: true,
+                anchor: pingAnchor.trim(),
+                timezone: getLocalTimezone(),
+                windowHours: Number(pingWindow),
+                slotsPerDay: Number(pingSlots),
+              },
+            });
+          };
+          return h(
+            "div",
+            { testId: `provider-autoping-${item.id}`, style: { display: "flex", flexDirection: "column", gap: 4, paddingTop: 2 } },
+            h(
+              "div",
+              { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+              h("text", { style: { color: theme.muted, fontSize: 10 } }, "Auto-ping:"),
+              pingChip(`provider-autoping-off-${item.id}`, "Off", !reactiveOn && !scheduleOn, () =>
+                onSaveAutoPing(item.id, { reactive: false, schedule: { enabled: false } })
+              ),
+              pingChip(`provider-autoping-reset-${item.id}`, "On reset", reactiveOn, () =>
+                onSaveAutoPing(item.id, { reactive: true, schedule: { enabled: false } })
+              ),
+              pingChip(`provider-autoping-schedule-${item.id}`, "Schedule", scheduleOn, saveSchedule),
+              h(
+                "text",
+                { testId: `provider-autoping-summary-${item.id}`, style: { color: theme.muted, fontSize: 10, flexGrow: 1 } },
+                scheduleOn ? getScheduleSlotLabels(schedule).join(" / ") : reactiveOn ? "after each reset" : "off"
+              )
+            ),
+            scheduleOn
+              ? h(
+                  "div",
+                  { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                  h("input", {
+                    testId: `provider-autoping-anchor-${item.id}`,
+                    "aria-label": "Anchor time",
+                    value: pingAnchor,
+                    onChange: (event) => setPingAnchor(event.value ?? ""),
+                    onSubmit: saveSchedule,
+                    style: { width: 66, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                  }),
+                  h("input", {
+                    testId: `provider-autoping-window-${item.id}`,
+                    "aria-label": "Window hours",
+                    value: pingWindow,
+                    onChange: (event) => setPingWindow(event.value ?? ""),
+                    onSubmit: saveSchedule,
+                    style: { width: 50, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                  }),
+                  h("input", {
+                    testId: `provider-autoping-slots-${item.id}`,
+                    "aria-label": "Pings per day",
+                    value: pingSlots,
+                    onChange: (event) => setPingSlots(event.value ?? ""),
+                    onSubmit: saveSchedule,
+                    style: { width: 46, height: 24, color: theme.text, backgroundColor: theme.panelAlt },
+                  }),
+                  h(
+                    "text",
+                    {
+                      testId: `provider-autoping-save-${item.id}`,
+                      role: "button",
+                      onClick: busy ? null : saveSchedule,
+                      style: { color: theme.ok, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                    },
+                    "Save schedule"
+                  ),
+                  h(
+                    "text",
+                    { style: { color: theme.muted, fontSize: 10 } },
+                    `anchor / window hours / pings per day · ${getLocalTimezone()}`
+                  )
+                )
+              : null
+          );
+        })()
       : null,
     editing
       ? h(
@@ -319,6 +438,7 @@ export function ProvidersPage({ api }) {
   const [validateResult, setValidateResult] = React.useState(null);
   const [nodes, setNodes] = React.useState(null);
   const [strategies, setStrategies] = React.useState({});
+  const [autoPing, setAutoPing] = React.useState({});
   const [stickyDraft, setStickyDraft] = React.useState({});
   const [availability, setAvailability] = React.useState(null);
   const [nodeName, setNodeName] = React.useState("");
@@ -429,8 +549,18 @@ export function ProvidersPage({ api }) {
   React.useEffect(() => {
     api
       .getSettings()
-      .then((settings) => setStrategies((settings && settings.providerStrategies) || {}))
-      .catch(() => setStrategies({}));
+      .then((settings) => {
+        setStrategies((settings && settings.providerStrategies) || {});
+        const ping = {};
+        for (const [provider, key] of Object.entries(AUTO_PING_KEYS)) {
+          ping[provider] = (settings && settings[key]) || {};
+        }
+        setAutoPing(ping);
+      })
+      .catch(() => {
+        setStrategies({});
+        setAutoPing({});
+      });
   }, [api]);
 
   // Cooldown locks and unavailable connections come from the gateway's own
@@ -521,6 +651,28 @@ export function ProvidersPage({ api }) {
     api
       .patchSettings({ providerStrategies: updated })
       .then((next) => setStrategies((next && next.providerStrategies) || updated))
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
+  // Auto-ping lives in one settings key per provider (claudeAutoPing,
+  // codexAutoPing) holding { connections, schedules } maps keyed by connection.
+  const saveAutoPing = (providerId, connectionId, change) => {
+    const key = AUTO_PING_KEYS[providerId];
+    if (!key) return;
+    const current = autoPing[providerId] || {};
+    const next = {
+      connections: { ...(current.connections || {}), [connectionId]: change.reactive === true },
+      schedules: { ...(current.schedules || {}), [connectionId]: change.schedule || { enabled: false } },
+    };
+    setBusy(true);
+    setError("");
+    api
+      .patchSettings({ [key]: next })
+      .then((settings) => {
+        const saved = (settings && settings[key]) || next;
+        setAutoPing((map) => ({ ...map, [providerId]: saved }));
+      })
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
   };
@@ -652,6 +804,8 @@ export function ProvidersPage({ api }) {
                   onUpdate: update,
                   onTest: (target) => api.testProvider(target.id),
                   busy,
+                  autoPing: AUTO_PING_KEYS[item.provider] ? autoPing[item.provider] || {} : null,
+                  onSaveAutoPing: (connectionId, change) => saveAutoPing(item.provider, connectionId, change),
                 })
               )
             ),
