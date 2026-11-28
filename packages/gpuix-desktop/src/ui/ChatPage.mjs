@@ -32,7 +32,9 @@ export function ChatPage({ api }) {
   const [draft, setDraft] = React.useState("");
   const [messages, setMessages] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
+  const [streaming, setStreaming] = React.useState(true);
   const [error, setError] = React.useState("");
+  const abortRef = React.useRef(null);
 
   const load = React.useCallback(() => {
     setError("");
@@ -77,6 +79,49 @@ export function ChatPage({ api }) {
     setDraft("");
     setBusy(true);
     setError("");
+    if (streaming) {
+      let received = "";
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setMessages([...next, { role: "assistant", content: "" }]);
+      api
+        .streamChatCompletion({
+          apiKey,
+          model,
+          messages: payload,
+          signal: controller.signal,
+          onDelta: (delta) => {
+            received += delta;
+            const text = received;
+            setMessages((list) => {
+              if (list.length === 0) return list;
+              const copy = [...list];
+              copy[copy.length - 1] = { role: "assistant", content: text };
+              return copy;
+            });
+          },
+        })
+        .catch((err) => {
+          const aborted = controller.signal.aborted;
+          if (aborted) {
+            const text = received || "(stopped)";
+            setMessages((list) => {
+              if (list.length === 0) return list;
+              const copy = [...list];
+              copy[copy.length - 1] = { role: "assistant", content: text };
+              return copy;
+            });
+          } else {
+            setError(err.message);
+            if (!received) setMessages(next);
+          }
+        })
+        .finally(() => {
+          abortRef.current = null;
+          setBusy(false);
+        });
+      return;
+    }
     api
       .createChatCompletion({ apiKey, model, messages: payload })
       .then((body) => {
@@ -124,11 +169,30 @@ export function ChatPage({ api }) {
       { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 14, flexWrap: "wrap" } },
       h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Chat"),
       chip("chat-clear", "Clear conversation", () => setMessages([]), false),
+      chip("chat-stream", "Stream", () => setStreaming((value) => !value), streaming),
       h(
         "text",
         { testId: "chat-status", style: { color: busy ? theme.warn : theme.muted, fontSize: 10 } },
-        busy ? "Waiting for the reply..." : `${messages.length} messages`
-      )
+        busy ? (streaming ? "Streaming..." : "Waiting for the reply...") : `${messages.length} messages`
+      ),
+      streaming
+        ? h(
+            "text",
+            {
+              testId: "chat-stop",
+              role: "button",
+              onClick: () => {
+                if (abortRef.current) abortRef.current.abort();
+              },
+              style: {
+                color: busy ? theme.bad : theme.muted,
+                fontSize: 10,
+                cursor: busy ? "pointer" : "default",
+              },
+            },
+            "Stop"
+          )
+        : null
     ),
     h(
       "div",
@@ -262,7 +326,7 @@ export function ChatPage({ api }) {
     h(
       "text",
       { style: { color: theme.muted, fontSize: 10 } },
-      "Non-streaming through /v1/chat/completions; a send spends the selected provider account. Streaming and multiline prompts stay on the dashboard."
+      "Streams through /v1/chat/completions; a send spends the selected provider account. Multiline prompts stay on the dashboard."
     )
   );
 }

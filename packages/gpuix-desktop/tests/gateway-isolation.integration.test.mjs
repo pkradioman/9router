@@ -233,6 +233,13 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     });
     expect([400, 401, 403, 404]).toContain(chatProbe.status);
 
+    // The streaming path must be accepted by the staged runtime as well.
+    const streamProbe = await call("/v1/chat/completions", {
+      method: "POST",
+      body: JSON.stringify({ model: "gpuix-probe/none", messages: [], stream: true }),
+    });
+    expect([400, 401, 403, 404]).toContain(streamProbe.status);
+
     // Provider chips are fed by the distinct providers in request details.
     const usedProviders = await call("/api/usage/providers");
     expect(usedProviders.status).toBe(200);

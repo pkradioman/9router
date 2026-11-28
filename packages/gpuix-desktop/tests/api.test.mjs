@@ -385,6 +385,60 @@ describe("createGatewayApi", () => {
     });
   });
 
+  it("streams chat deltas until [DONE]", async () => {
+    const encoder = new TextEncoder();
+    const chunks = [
+      'data: {"choices":[{"delta":{"content":"Hel"}}]}\n\ndata: {"choices":[{"delta":{"con',
+      'tent":"lo"}}]}\n\n',
+      'data: {"choices":[{"delta":{}}]}\n\ndata: [DONE]\n\n',
+      'data: {"choices":[{"delta":{"content":"ignored"}}]}\n\n',
+    ];
+    const { calls, fetchImpl } = fakeFetch(() => ({
+      ok: true,
+      status: 200,
+      body: new ReadableStream({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+          controller.close();
+        },
+      }),
+    }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", token: "tok", fetchImpl });
+    const deltas = [];
+
+    await api.streamChatCompletion({
+      apiKey: "sk-1",
+      model: "openai/gpt-4o",
+      messages: [{ role: "user", content: "hi" }],
+      onDelta: (delta) => deltas.push(delta),
+    });
+
+    expect(deltas).toEqual(["Hel", "lo"]);
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/v1/chat/completions");
+    expect(calls[0].init.method).toBe("POST");
+    expect(calls[0].init.headers.authorization).toBe("Bearer sk-1");
+    expect(calls[0].init.headers["x-9r-cli-token"]).toBe("tok");
+    expect(calls[0].init.headers.accept).toBe("text/event-stream");
+    expect(JSON.parse(calls[0].init.body)).toEqual({
+      model: "openai/gpt-4o",
+      messages: [{ role: "user", content: "hi" }],
+      stream: true,
+    });
+  });
+
+  it("throws the gateway message for a failed stream", async () => {
+    const { fetchImpl } = fakeFetch(() => ({
+      ok: false,
+      status: 429,
+      text: async () => JSON.stringify({ error: { message: "rate limited" } }),
+    }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    await expect(
+      api.streamChatCompletion({ model: "m", messages: [], onDelta: () => {} })
+    ).rejects.toMatchObject({ name: "ApiError", message: "rate limited", status: 429 });
+  });
+
   it("reads model availability and clears a cooldown", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ models: [], unavailableCount: 0 }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

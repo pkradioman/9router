@@ -41,6 +41,71 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     return parsed;
   }
 
+  // Server-sent events: each `data:` line is one JSON event; `[DONE]` ends the
+  // stream. The response body is read incrementally so the caller renders while
+  // the gateway is still producing tokens.
+  async function streamRequest(route, { body, extraHeaders = null, timeout = 60000, signal = null, onEvent } = {}) {
+    const headers = { ...(extraHeaders || {}), accept: "text/event-stream" };
+    if (token) headers["x-9r-cli-token"] = token;
+    if (body !== undefined) headers["content-type"] = "application/json";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error("request timed out")), timeout);
+    const forwardAbort = () => controller.abort(signal.reason);
+    if (signal) {
+      if (signal.aborted) controller.abort(signal.reason);
+      else signal.addEventListener("abort", forwardAbort, { once: true });
+    }
+    try {
+      const response = await fetchImpl(`${baseUrl}${route}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        let parsed = null;
+        try {
+          parsed = text ? JSON.parse(text) : null;
+        } catch {
+          parsed = null;
+        }
+        const raw = parsed && parsed.error;
+        const message =
+          (typeof raw === "string" && raw) ||
+          (raw && raw.message) ||
+          `POST ${route} failed (${response.status})`;
+        throw new ApiError(message, response.status, parsed);
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let newline;
+        while ((newline = buffer.indexOf("\n")) >= 0) {
+          const line = buffer.slice(0, newline).trim();
+          buffer = buffer.slice(newline + 1);
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (data === "[DONE]") return;
+          let event = null;
+          try {
+            event = JSON.parse(data);
+          } catch {
+            continue;
+          }
+          if (onEvent) onEvent(event);
+        }
+      }
+    } finally {
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener("abort", forwardAbort);
+    }
+  }
+
   return {
     listKeys: async () => {
       const body = await request("/api/keys");
@@ -140,6 +205,18 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
         body: { model, messages, stream: false },
         extraHeaders: apiKey ? { authorization: `Bearer ${apiKey}` } : null,
         timeout,
+      }),
+    streamChatCompletion: ({ apiKey, model, messages, onDelta, signal = null, timeout = 120000 }) =>
+      streamRequest("/v1/chat/completions", {
+        body: { model, messages, stream: true },
+        extraHeaders: apiKey ? { authorization: `Bearer ${apiKey}` } : null,
+        timeout,
+        signal,
+        onEvent: (event) => {
+          const delta = event && event.choices && event.choices[0] && event.choices[0].delta;
+          const content = delta && delta.content;
+          if (typeof content === "string" && content) onDelta(content);
+        },
       }),
     getPricing: () => request("/api/pricing"),
     patchPricing: (pricing) => request("/api/pricing", { method: "PATCH", body: pricing }),

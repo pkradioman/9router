@@ -205,6 +205,11 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     createChatCompletion: vi.fn(async ({ model }) => ({
       choices: [{ message: { role: "assistant", content: `reply from ${model}` } }],
     })),
+    streamChatCompletion: vi.fn(async ({ model, onDelta }) => {
+      onDelta("reply from ");
+      onDelta(model);
+      return {};
+    }),
     getModelAvailability: vi.fn(async () => ({
       models: cooldowns.map((item) => ({ ...item })),
       unavailableCount: cooldowns.length,
@@ -524,7 +529,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     );
   });
 
-  it("sends a non-streaming chat message and shows the reply", async () => {
+  it("streams a chat reply by default and falls back to one-shot when disabled", async () => {
     const api = createFakeApi([{ id: "k1", name: "laptop", key: "sk-live-1", isActive: true }]);
     const root = mount(api);
     await settle(root);
@@ -545,21 +550,71 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "chat-send");
     await settle(root);
 
+    expect(api.streamChatCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: "sk-live-1",
+        model: "openai/gpt-4o",
+        messages: [
+          { role: "system", content: "brief" },
+          { role: "user", content: "hello" },
+        ],
+        signal: expect.anything(),
+      })
+    );
+    expect(api.createChatCompletion).not.toHaveBeenCalled();
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("assistant");
+    expect(painted).toContain("reply from openai/gpt-4o");
+    expect(painted).toContain("Stream");
+
+    click(root.renderer, "chat-clear");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("No messages yet.");
+
+    click(root.renderer, "chat-stream");
+    await settle(root);
+    await typeInto("chat-input", "o n e");
+    click(root.renderer, "chat-send");
+    await settle(root);
     expect(api.createChatCompletion).toHaveBeenCalledWith({
       apiKey: "sk-live-1",
       model: "openai/gpt-4o",
       messages: [
         { role: "system", content: "brief" },
-        { role: "user", content: "hello" },
+        { role: "user", content: "one" },
       ],
     });
-    const painted = root.renderer.getPaintedText().join("\n");
-    expect(painted).toContain("assistant");
-    expect(painted).toContain("reply from openai/gpt-4o");
+    expect(api.streamChatCompletion).toHaveBeenCalledTimes(1);
+  });
 
-    click(root.renderer, "chat-clear");
+  it("stops a streaming reply and keeps the partial answer", async () => {
+    const api = createFakeApi([{ id: "k1", name: "laptop", key: "sk-live-1", isActive: true }]);
+    api.streamChatCompletion = vi.fn(
+      ({ onDelta, signal }) =>
+        new Promise((resolve, reject) => {
+          onDelta("partial answer");
+          signal.addEventListener("abort", () => reject(new Error("aborted")));
+        })
+    );
+    const root = mount(api);
     await settle(root);
-    expect(root.renderer.getPaintedText().join("\n")).toContain("No messages yet.");
+    click(root.renderer, "nav-chat");
+    await settle(root);
+    const input = root.renderer.findByTestId("chat-input");
+    const bounds = root.renderer.getElementBounds(input.id);
+    root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(input.id, "h i");
+    await settle(root);
+    click(root.renderer, "chat-send");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Streaming...");
+
+    click(root.renderer, "chat-stop");
+    await settle(root);
+    const painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("partial answer");
+    expect(painted).toContain("2 messages");
+    expect(painted).not.toContain("Streaming...");
   });
 
   it("lists media providers by kind and toggles their connections", async () => {
