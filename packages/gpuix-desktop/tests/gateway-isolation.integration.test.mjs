@@ -259,6 +259,18 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(priceReset.status).toBe(200);
     expect((await call("/api/pricing")).body["gpuix-probe"]?.["probe-model"]).toBeUndefined();
 
+    // Model availability reads connection cooldown locks; a fresh isolated DB
+    // has none, and clearing a synthetic lock is a no-op that still answers 200.
+    const availability = await call("/api/models/availability");
+    expect(availability.status).toBe(200);
+    expect(Array.isArray(availability.body.models)).toBe(true);
+    const cleared = await call("/api/models/availability", {
+      method: "POST",
+      body: JSON.stringify({ action: "clearCooldown", provider: "gpuix-probe", model: "probe-model" }),
+    });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.ok).toBe(true);
+
     // Combo presets preview is read-only and does not touch providers for the
     // "claude" source.
     const presets = await call("/api/combos/presets?source=claude");

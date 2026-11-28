@@ -92,6 +92,9 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     setModelAlias: (model, alias) => request("/api/models/alias", { method: "PUT", body: { model, alias } }),    deleteModelAlias: (alias) =>
       request(`/api/models/alias?alias=${encodeURIComponent(alias)}`, { method: "DELETE" }),
     testModel: (model, kind = "llm") => request("/api/models/test", { method: "POST", body: { model, kind } }),
+    getModelAvailability: () => request("/api/models/availability"),
+    clearModelCooldown: (provider, model) =>
+      request("/api/models/availability", { method: "POST", body: { action: "clearCooldown", provider, model } }),
     getUsageStats: (period) => request(`/api/usage/stats?period=${encodeURIComponent(period)}`),
     getUsageChart: (period) => request(`/api/usage/chart?period=${encodeURIComponent(period)}`),
     getRequestDetails: (page = 1, pageSize = 20, filters = {}) => {

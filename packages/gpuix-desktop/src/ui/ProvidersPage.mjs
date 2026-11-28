@@ -312,6 +312,7 @@ export function ProvidersPage({ api }) {
   const [nodes, setNodes] = React.useState(null);
   const [strategies, setStrategies] = React.useState({});
   const [stickyDraft, setStickyDraft] = React.useState({});
+  const [availability, setAvailability] = React.useState(null);
   const [nodeName, setNodeName] = React.useState("");
   const [nodePrefix, setNodePrefix] = React.useState("");
   const [nodeBaseUrl, setNodeBaseUrl] = React.useState("");
@@ -400,6 +401,29 @@ export function ProvidersPage({ api }) {
       .catch(() => setStrategies({}));
   }, [api]);
 
+  // Cooldown locks and unavailable connections come from the gateway's own
+  // connection rows, so this is a read of real routing state, not a probe.
+  const loadAvailability = React.useCallback(() => {
+    api
+      .getModelAvailability()
+      .then((body) => setAvailability((body && body.models) || []))
+      .catch(() => setAvailability([]));
+  }, [api]);
+
+  React.useEffect(() => {
+    loadAvailability();
+  }, [loadAvailability]);
+
+  const clearCooldown = (provider, model) => {
+    setBusy(true);
+    setError("");
+    api
+      .clearModelCooldown(provider, model)
+      .then(loadAvailability)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
   const createNode = () => {
     if (!nodeName.trim() || !nodePrefix.trim() || !nodeBaseUrl.trim()) {
       setError("Node needs a name, a prefix and a base URL.");
@@ -469,6 +493,14 @@ export function ProvidersPage({ api }) {
 
   const inputStyle = { width: 170, height: 30, color: theme.text, backgroundColor: theme.panelAlt };
   const field = (props) => h("input", { ...props, style: inputStyle });
+
+  const availabilityIssues = availability || [];
+  const availabilityGroups = availabilityIssues.reduce((map, item) => {
+    const key = item.provider || "unknown";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+    return map;
+  }, new Map());
 
   return h(
     "div",
@@ -665,6 +697,110 @@ export function ProvidersPage({ api }) {
         "Chat-type OpenAI-compatible nodes only; responses routing and per-node options are not native yet."
       )
     ) : null,
+    h(
+      "div",
+      {
+        testId: "availability-section",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: theme.panel,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 10,
+          padding: 16,
+          gap: 8,
+        },
+      },
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
+        h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Model availability"),
+        h(
+          "text",
+          {
+            testId: "availability-summary",
+            style: { color: availabilityIssues.length === 0 ? theme.ok : theme.warn, fontSize: 11 },
+          },
+          availability === null
+            ? "Loading..."
+            : availabilityIssues.length === 0
+              ? "All models available"
+              : `${availabilityIssues.length} model issue${availabilityIssues.length === 1 ? "" : "s"}`
+        ),
+        h("div", { style: { flexGrow: 1 } }),
+        h(
+          "text",
+          {
+            testId: "availability-refresh",
+            role: "button",
+            onClick: loadAvailability,
+            style: { color: theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
+          },
+          "Refresh"
+        )
+      ),
+      availability === null
+        ? null
+        : availabilityIssues.length === 0
+          ? h(
+              "text",
+              { testId: "availability-ok", style: { color: theme.muted, fontSize: 11 } },
+              "No cooldowns or unavailable connections right now."
+            )
+          : h(
+              "div",
+              { style: { display: "flex", flexDirection: "column", gap: 6 } },
+              [...availabilityGroups.entries()].map(([provider, items]) =>
+                h(
+                  "div",
+                  { key: provider, style: { display: "flex", flexDirection: "column", gap: 2 } },
+                  h("text", { style: { color: theme.text, fontSize: 11, fontWeight: 600 } }, provider),
+                  ...items.map((item) =>
+                    h(
+                      "div",
+                      {
+                        key: `${item.connectionId || ""}-${item.model}`,
+                        testId: `availability-row-${provider}-${item.model}`,
+                        style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 },
+                      },
+                      h(
+                        "text",
+                        { style: { color: theme.text, fontSize: 10, fontFamily: "Consolas", minWidth: 160 } },
+                        item.model === "__all" ? "all models" : item.model
+                      ),
+                      h(
+                        "text",
+                        {
+                          style: {
+                            color: item.status === "cooldown" ? theme.warn : theme.bad,
+                            fontSize: 10,
+                            width: 78,
+                          },
+                        },
+                        item.status === "cooldown"
+                          ? `cooldown${item.until ? ` · ${new Date(item.until).toLocaleString()}` : ""}`
+                          : "unavailable"
+                      ),
+                      h("text", { style: { color: theme.muted, fontSize: 10, flexGrow: 1 } }, item.connectionName || ""),
+                      item.status === "cooldown"
+                        ? h(
+                            "text",
+                            {
+                              testId: `availability-clear-${provider}-${item.model}`,
+                              role: "button",
+                              onClick: busy ? null : () => clearCooldown(provider, item.model),
+                              style: { color: theme.muted, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                            },
+                            "Clear"
+                          )
+                        : null
+                    )
+                  )
+                )
+              )
+            )
+    ),
     h(
       "div",
       {

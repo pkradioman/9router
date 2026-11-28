@@ -342,6 +342,23 @@ describe("createGatewayApi", () => {
     expect(JSON.parse(calls[0].init.body)).toEqual({ name: "mix", models: ["openai/gpt-4o"] });
   });
 
+  it("reads model availability and clears a cooldown", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ models: [], unavailableCount: 0 }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getModelAvailability()).toEqual({ models: [], unavailableCount: 0 });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/models/availability");
+
+    await api.clearModelCooldown("openai", "gpt-4o");
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/models/availability");
+    expect(calls[1].init.method).toBe("POST");
+    expect(JSON.parse(calls[1].init.body)).toEqual({
+      action: "clearCooldown",
+      provider: "openai",
+      model: "gpt-4o",
+    });
+  });
+
   it("reads and writes pricing overrides", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ openai: { "gpt-4o": { input: 2.5, output: 10 } } }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

@@ -40,6 +40,10 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
   let combos = comboSeed.map((item) => ({ ...item }));
   let pools = poolSeed.map((item) => ({ ...item }));
   let nodes = [];
+  let cooldowns = [
+    { provider: "openai", model: "gpt-4o", status: "cooldown", until: "2099-01-01T00:00:00.000Z", connectionId: "p1", connectionName: "Work" },
+    { provider: "anthropic", model: "__all", status: "unavailable", connectionId: "p2", connectionName: "Backup" },
+  ];
   let fakePricing = {
     openai: {
       "gpt-4o": { input: 2.5, output: 10, cached: 1.25 },
@@ -174,6 +178,14 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       version: "0.9.1",
       url: "http://127.0.0.1:5757",
     })),
+    getModelAvailability: vi.fn(async () => ({
+      models: cooldowns.map((item) => ({ ...item })),
+      unavailableCount: cooldowns.length,
+    })),
+    clearModelCooldown: vi.fn(async (provider, model) => {
+      cooldowns = cooldowns.filter((item) => !(item.provider === provider && item.model === model));
+      return { ok: true };
+    }),
     getPricing: vi.fn(async () => JSON.parse(JSON.stringify(fakePricing))),
     patchPricing: vi.fn(async (payload) => {
       for (const [provider, models] of Object.entries(payload)) {
@@ -461,6 +473,32 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "provider-strategy-openai-global");
     await settle(root);
     expect(api.patchSettings).toHaveBeenLastCalledWith({ providerStrategies: {} });
+  });
+
+  it("lists model cooldowns and clears one", async () => {
+    const api = createFakeApi([], [
+      { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },
+      { id: "p2", name: "Backup", provider: "anthropic", authType: "apikey", isActive: true },
+    ]);
+    const root = createTestRoot({ width: 1080, height: 1400 });
+    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    await settle(root);
+
+    click(root.renderer, "nav-providers");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Model availability");
+    expect(painted).toContain("2 model issues");
+    expect(painted).toContain("gpt-4o");
+    expect(painted).toContain("all models");
+    expect(painted).toContain("Backup");
+
+    click(root.renderer, "availability-clear-openai-gpt-4o");
+    await settle(root);
+    expect(api.clearModelCooldown).toHaveBeenCalledWith("openai", "gpt-4o");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("1 model issue");
+    expect(painted).not.toContain("2 model issues");
   });
 
   it("edits one model's pricing and resets it", async () => {
