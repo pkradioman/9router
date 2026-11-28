@@ -240,6 +240,11 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     });
     expect([400, 401, 403, 404]).toContain(streamProbe.status);
 
+    // Quota tracker addresses one connection; an unknown id must answer 404
+    // without contacting any provider.
+    const quotaProbe = await call("/api/usage/gpuix-probe-missing");
+    expect(quotaProbe.status).toBe(404);
+
     // Provider chips are fed by the distinct providers in request details.
     const usedProviders = await call("/api/usage/providers");
     expect(usedProviders.status).toBe(200);

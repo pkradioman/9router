@@ -168,6 +168,8 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       request("/api/models/availability", { method: "POST", body: { action: "clearCooldown", provider, model } }),
     getUsageStats: (period) => request(`/api/usage/stats?period=${encodeURIComponent(period)}`),
     getUsageChart: (period) => request(`/api/usage/chart?period=${encodeURIComponent(period)}`),
+    getConnectionUsage: (id, { force = false } = {}) =>
+      request(`/api/usage/${encodeURIComponent(id)}${force ? "?force=1" : ""}`),
     getUsageProviders: async () => {
       const body = await request("/api/usage/providers");
       return (body && body.providers) || [];

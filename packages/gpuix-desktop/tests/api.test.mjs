@@ -456,6 +456,18 @@ describe("createGatewayApi", () => {
     });
   });
 
+  it("reads one connection's quota, optionally forced", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => json({ quotas: { five_hour: { used: 1, total: 2 } } }));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", token: "tok", fetchImpl });
+
+    expect(await api.getConnectionUsage("p 1")).toEqual({ quotas: { five_hour: { used: 1, total: 2 } } });
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/usage/p%201");
+    expect(calls[0].init.headers["x-9r-cli-token"]).toBe("tok");
+
+    await api.getConnectionUsage("p1", { force: true });
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/api/usage/p1?force=1");
+  });
+
   it("reads and writes pricing overrides", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ openai: { "gpt-4o": { input: 2.5, output: 10 } } }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

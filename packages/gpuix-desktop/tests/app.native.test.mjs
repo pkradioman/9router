@@ -198,6 +198,15 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       version: "0.9.1",
       url: "http://127.0.0.1:5757",
     })),
+    getConnectionUsage: vi.fn(async (id) => {
+      if (id === "p2") throw new Error("expired token");
+      return {
+        quotas: {
+          five_hour: { used: 10, total: 100, resetAt: "2026-11-28T08:00:00.000Z" },
+          seven_day: { used: 40, total: 200 },
+        },
+      };
+    }),
     getUsageProviders: vi.fn(async () => [
       { id: "openai", name: "OpenAI" },
       { id: "anthropic", name: "Anthropic" },
@@ -699,6 +708,43 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "media-create-combo");
     await settle(root);
     expect(api.createCombo).toHaveBeenCalledWith("search-combo-1", "webSearch");
+  });
+
+  it("loads provider quota on demand and shows failures inline", async () => {
+    const api = createFakeApi([], [
+      { id: "p1", name: "Work", provider: "claude", authType: "oauth", isActive: true },
+      { id: "p2", name: "Backup", provider: "codex", authType: "oauth", isActive: true },
+    ]);
+    const root = mount(api);
+    await settle(root);
+
+    click(root.renderer, "nav-quota");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Quota tracker");
+    expect(painted).toContain("Work");
+    expect(painted).toContain("quota is read only when you load a row");
+    expect(api.getConnectionUsage).not.toHaveBeenCalled();
+
+    click(root.renderer, "quota-load-0");
+    await settle(root);
+    expect(api.getConnectionUsage).toHaveBeenCalledWith("p1");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("five_hour");
+    expect(painted).toContain("10 / 100");
+    expect(painted).toContain("10% used");
+    expect(painted).toContain("resets 2026-11-28 08:00");
+    expect(painted).toContain("seven_day");
+    expect(painted).toContain("40 / 200");
+
+    click(root.renderer, "quota-load-1");
+    await settle(root);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("expired token");
+
+    click(root.renderer, "quota-refresh-all");
+    await settle(root);
+    expect(api.getConnectionUsage.mock.calls.filter(([id]) => id === "p1").length).toBe(2);
   });
 
   it("lists model cooldowns and clears one", async () => {
