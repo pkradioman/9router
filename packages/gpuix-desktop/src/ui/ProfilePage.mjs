@@ -1,10 +1,15 @@
 // Native Profile & settings page (local slice of the dashboard profile).
 //
 // Only settings that are safe to flip from the isolated shell are exposed:
-// require-login, tunnel dashboard access, the dashboard password and the
-// gateway's outbound proxy. Tunnel setup and backup/restore stay in the
-// dashboard because they need external processes or file dialogs.
+// require-login, tunnel dashboard access, observability, the dashboard password,
+// the outbound proxy, and database backup/restore. GPUIX has no file dialog, so
+// a backup is written to the default folder (GPUIX_BACKUP_DIR overrides it) and
+// a restore reads a path typed into the field; the restore needs a second
+// confirmation click because it replaces the gateway database.
 import React from "react";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { theme } from "./theme.mjs";
 
 const h = React.createElement;
@@ -43,6 +48,10 @@ export function ProfilePage({ api, status }) {
   const [proxyUrl, setProxyUrl] = React.useState("");
   const [proxyNoProxy, setProxyNoProxy] = React.useState("");
   const [proxyStatus, setProxyStatus] = React.useState("");
+  const [dbPassword, setDbPassword] = React.useState("");
+  const [dbPath, setDbPath] = React.useState("");
+  const [dbStatus, setDbStatus] = React.useState("");
+  const [dbConfirm, setDbConfirm] = React.useState(false);
 
   const load = React.useCallback(() => {
     setError("");
@@ -97,6 +106,67 @@ export function ProfilePage({ api, status }) {
         setPasswordStatus("Password updated.");
       })
       .catch((err) => setPasswordStatus(err.message));
+  };
+
+  const backupDir = process.env.GPUIX_BACKUP_DIR || path.join(os.homedir(), "Downloads");
+
+  const saveBackup = () => {
+    setDbStatus("Saving backup...");
+    api
+      .getDatabaseBackup(dbPassword)
+      .then((payload) => {
+        fs.mkdirSync(backupDir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[.:]/g, "-");
+        const file = path.join(backupDir, `9router-backup-${stamp}.json`);
+        fs.writeFileSync(file, JSON.stringify(payload, null, 2), "utf-8");
+        setDbStatus(`Backup saved: ${file}`);
+      })
+      .catch((err) => setDbStatus(err.message));
+  };
+
+  const useLatestBackup = () => {
+    try {
+      const files = fs
+        .readdirSync(backupDir)
+        .filter((name) => name.startsWith("9router-backup-"))
+        .sort();
+      if (files.length === 0) {
+        setDbStatus("No backup found in the default folder.");
+        return;
+      }
+      setDbPath(path.join(backupDir, files[files.length - 1]));
+      setDbConfirm(false);
+      setDbStatus("Using the newest backup file.");
+    } catch (err) {
+      setDbStatus(err.message);
+    }
+  };
+
+  const restoreBackup = () => {
+    if (!dbConfirm) {
+      if (!dbPath.trim()) {
+        setDbStatus("Enter the backup file path.");
+        return;
+      }
+      setDbConfirm(true);
+      setDbStatus("Press Confirm to replace the database.");
+      return;
+    }
+    setDbConfirm(false);
+    let payload = null;
+    try {
+      payload = JSON.parse(fs.readFileSync(dbPath.trim(), "utf-8"));
+    } catch (err) {
+      setDbStatus(`Cannot read backup: ${err.message}`);
+      return;
+    }
+    setDbStatus("Importing...");
+    Promise.resolve(api.importDatabase(payload, dbPassword))
+      .then(() => {
+        setDbStatus("Database imported.");
+        load();
+      })
+      .catch((err) => setDbStatus(err.message));
   };
 
   const labeledField = (testId, label, value, onChange) =>
@@ -311,12 +381,60 @@ export function ProfilePage({ api, status }) {
               "text",
               { testId: "profile-password", style: { color: theme.muted, fontSize: 11 } },
               settings.hasPassword ? "Password is set." : "No dashboard password set."
+            ),
+            h(
+              "div",
+              {
+                testId: "profile-db-section",
+                style: { display: "flex", flexDirection: "column", gap: 6, paddingTop: 10, borderTopWidth: 1, borderColor: theme.border },
+              },
+              h("text", { style: { color: theme.text, fontSize: 12, fontWeight: 600 } }, "Database backup"),
+              h(
+                "text",
+                { style: { color: theme.muted, fontSize: 10 } },
+                "The gateway trusts this shell through its local CLI token, so the password is optional. A backup is written as JSON to the default folder; a restore reads the path you type and needs a second click."
+              ),
+              labeledField("profile-db-password", "Password (optional)", dbPassword, setDbPassword),
+              h(
+                "text",
+                {
+                  testId: "profile-db-save",
+                  role: "button",
+                  onClick: saveBackup,
+                  style: { color: theme.ok, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+                },
+                "Save backup"
+              ),
+              labeledField("profile-db-path", "Backup file path", dbPath, setDbPath),
+              h(
+                "text",
+                {
+                  testId: "profile-db-latest",
+                  role: "button",
+                  onClick: useLatestBackup,
+                  style: { color: theme.muted, fontSize: 10, cursor: "pointer", hover: { color: theme.text } },
+                },
+                "Use newest backup in the default folder"
+              ),
+              h(
+                "text",
+                {
+                  testId: "profile-db-restore",
+                  role: "button",
+                  onClick: restoreBackup,
+                  style: { color: dbConfirm ? theme.bad : theme.muted, fontSize: 11, cursor: "pointer", hover: { color: theme.text } },
+                },
+                dbConfirm ? "Confirm restore (replaces the database)" : "Restore from file"
+              ),
+              dbStatus
+                ? h("text", { testId: "profile-db-status", style: { color: theme.muted, fontSize: 10 } }, dbStatus)
+                : null
             )
           ),
       h(
         "text",
         { style: { color: theme.muted, fontSize: 11 } },
-        "Tunnel setup and backup/restore are not native yet."
+        "Tunnel setup stays on the dashboard; backups are written to the default folder because GPUIX has no file dialog."
       )
     )
   );

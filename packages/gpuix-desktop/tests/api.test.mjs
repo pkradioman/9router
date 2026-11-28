@@ -497,6 +497,23 @@ describe("createGatewayApi", () => {
     expect(JSON.parse(calls[0].init.body)).toEqual({ file: "7_res_client.txt", content: "payload" });
   });
 
+  it("exports and imports the database over the CLI token", async () => {
+    const { calls, fetchImpl } = fakeFetch((url, init) =>
+      init.method === "POST" ? json({ success: true }) : json({ version: 1, tables: {} })
+    );
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", token: "tok", fetchImpl });
+
+    expect(await api.getDatabaseBackup()).toEqual({ version: 1, tables: {} });
+    expect(calls[0].init.headers["x-9r-cli-token"]).toBe("tok");
+    expect(calls[0].init.headers["x-9r-password"]).toBeUndefined();
+
+    await api.getDatabaseBackup("pw");
+    expect(calls[1].init.headers["x-9r-password"]).toBe("pw");
+
+    await api.importDatabase({ version: 1, tables: {} }, "pw");
+    expect(JSON.parse(calls[2].init.body)).toEqual({ version: 1, tables: {}, password: "pw" });
+  });
+
   it("reads one connection's quota, optionally forced", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ quotas: { five_hour: { used: 1, total: 2 } } }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", token: "tok", fetchImpl });

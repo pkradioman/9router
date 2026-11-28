@@ -134,7 +134,7 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     const call = async (route, init = {}) => {
       const response = await fetch(`http://127.0.0.1:${port}${route}`, {
         ...init,
-        headers: { ...cliHeaders, ...(init.body ? { "content-type": "application/json" } : {}) },
+        headers: { ...cliHeaders, ...(init.headers || {}), ...(init.body ? { "content-type": "application/json" } : {}) },
         signal: AbortSignal.timeout(8000),
       });
       const text = await response.text();
@@ -440,6 +440,19 @@ describe.runIf(canRun)("isolated gateway integration", () => {
       body: JSON.stringify({ currentPassword: "123456", newPassword: "gpuix-probe-pass" }),
     });
     expect(passwordChange.status).toBe(200);
+    expect((await call("/api/settings")).body.hasPassword).toBe(true);
+
+    // Backup/restore runs on the CLI token (password check is skipped for trusted
+    // local requests): export, then re-import the same payload.
+    const backup = await call("/api/settings/database");
+    expect(backup.status).toBe(200);
+    expect(backup.body && typeof backup.body === "object").toBe(true);
+    const reimport = await call("/api/settings/database", {
+      method: "POST",
+      body: JSON.stringify({ ...backup.body, password: "gpuix-probe-pass" }),
+    });
+    expect(reimport.status).toBe(200);
+    expect(reimport.body.success).toBe(true);
     expect((await call("/api/settings")).body.hasPassword).toBe(true);
 
     await supervisor.stop();

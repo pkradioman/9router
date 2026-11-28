@@ -220,6 +220,14 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     },
     clearConsoleLogs: () => request("/api/translator/console-logs", { method: "DELETE" }),
     getSettings: () => request("/api/settings"),
+    // The gateway trusts this shell through the local CLI token; the password
+    // header is only sent when the user typed one.
+    getDatabaseBackup: (password = "") =>
+      request("/api/settings/database", {
+        extraHeaders: password ? { "x-9r-password": password } : null,
+      }),
+    importDatabase: (payload, password) =>
+      request("/api/settings/database", { method: "POST", body: { ...payload, password } }),
     getTunnelStatus: () => request("/api/tunnel/status"),
     patchSettings: (patch) => request("/api/settings", { method: "PATCH", body: patch }),
     testProxyUrl: (proxyUrl) =>
