@@ -49,6 +49,8 @@ export function MediaProvidersPage({ api, status }) {
   const [modelTests, setModelTests] = React.useState({});
   const [openProvider, setOpenProvider] = React.useState("");
   const [openCombo, setOpenCombo] = React.useState("");
+  const [editingCombo, setEditingCombo] = React.useState("");
+  const [comboDraft, setComboDraft] = React.useState("");
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
@@ -151,6 +153,20 @@ export function MediaProvidersPage({ api, status }) {
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
   };
+  const renameCombo = (combo) => {
+    const name = comboDraft.trim();
+    if (!name) return;
+    setBusy(true);
+    setError("");
+    Promise.resolve(api.updateCombo(combo.id, { name }))
+      .then(() => {
+        setEditingCombo("");
+        load();
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
+
   const updateComboModels = (combo, models) => {
     setBusy(true);
     setError("");
@@ -505,7 +521,40 @@ export function MediaProvidersPage({ api, status }) {
                   h(
                     "div",
                     { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 } },
-                    h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, combo.name),
+                    editingCombo === combo.id
+                      ? h("input", {
+                          testId: `media-combo-name-${combo.id}`,
+                          "aria-label": "Combo name",
+                          value: comboDraft,
+                          onChange: (event) => setComboDraft(event.value ?? ""),
+                          onSubmit: () => renameCombo(combo),
+                          style: { width: 200, height: 24, color: theme.text, backgroundColor: theme.panelAlt, flexGrow: 1 },
+                        })
+                      : h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, combo.name),
+                    editingCombo === combo.id
+                      ? h(
+                          "text",
+                          {
+                            testId: `media-combo-save-${combo.id}`,
+                            role: "button",
+                            onClick: busy ? null : () => renameCombo(combo),
+                            style: { color: theme.ok, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                          },
+                          "Save"
+                        )
+                      : h(
+                          "text",
+                          {
+                            testId: `media-combo-rename-${combo.id}`,
+                            role: "button",
+                            onClick: busy ? null : () => {
+                              setEditingCombo(combo.id);
+                              setComboDraft("");
+                            },
+                            style: { color: theme.muted, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                          },
+                          "Rename"
+                        ),
                     h(
                       "text",
                       {

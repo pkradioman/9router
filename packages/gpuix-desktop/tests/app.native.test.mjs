@@ -718,6 +718,17 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     await settle(root);
     expect(api.createCombo).toHaveBeenCalledWith("search-combo-1", "webSearch");
 
+    click(root.renderer, "media-combo-rename-c9");
+    await settle(root);
+    const renameInput = root.renderer.findByTestId("media-combo-name-c9");
+    const renameBounds = root.renderer.getElementBounds(renameInput.id);
+    root.renderer.nativeSimulateClick(renameBounds.x + 4, renameBounds.y + renameBounds.height / 2);
+    root.renderer.nativeSimulateKeystrokes(renameInput.id, "w e b 2");
+    await settle(root);
+    click(root.renderer, "media-combo-save-c9");
+    await settle(root);
+    expect(api.updateCombo).toHaveBeenCalledWith("c9", { name: "web2" });
+
     click(root.renderer, "media-combo-models-c9");
     await settle(root);
     painted = root.renderer.getPaintedText().join("\n");
