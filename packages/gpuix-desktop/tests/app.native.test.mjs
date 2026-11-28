@@ -119,7 +119,7 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       { provider: "openai", model: "my-model", name: "my-model", fullModel: "openai/my-model", routedModel: "openai/my-model", alias: "my-model", caps: {} },
       { provider: "anthropic", model: "claude-sonnet", name: "Claude Sonnet", fullModel: "anthropic/claude-sonnet", routedModel: "anthropic/claude-sonnet", alias: "claude-sonnet", caps: { reasoning: true } },
     ]),
-    getDisabledModels: vi.fn(async () => ({ openai: ["gpt-4o-mini"] })),
+    getDisabledModels: vi.fn(async () => ({ openai: ["gpt-4o-mini", "dall-e-3"] })),
     disableModels: vi.fn(async () => ({ success: true })),
     enableModel: vi.fn(async () => ({ success: true })),
     enableAllModels: vi.fn(async () => ({ success: true })),
@@ -594,6 +594,19 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("Local Emb");
     expect(painted).toContain("custom embedding node");
     expect(painted).toContain("No connections");
+
+    click(root.renderer, "media-kind-image");
+    await settle(root);
+    click(root.renderer, "media-models-openai");
+    await settle(root);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("dall-e-3");
+    expect(painted).toContain("DALL-E 3");
+    expect(painted).toContain("Disabled");
+
+    click(root.renderer, "media-model-toggle-openai-dall-e-3");
+    await settle(root);
+    expect(api.enableModel).toHaveBeenCalledWith("openai", "dall-e-3");
   });
 
   it("lists model cooldowns and clears one", async () => {

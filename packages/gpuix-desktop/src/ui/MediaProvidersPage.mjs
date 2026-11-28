@@ -6,7 +6,7 @@
 // /api/providers rows; custom embedding nodes join the embedding kind.
 import React from "react";
 import { theme } from "./theme.mjs";
-import { MEDIA_PROVIDERS } from "./media-providers.generated.mjs";
+import { MEDIA_PROVIDERS, MEDIA_MODELS } from "./media-providers.generated.mjs";
 
 const h = React.createElement;
 
@@ -43,16 +43,19 @@ export function MediaProvidersPage({ api }) {
   const [kind, setKind] = React.useState("image");
   const [connections, setConnections] = React.useState(null);
   const [nodes, setNodes] = React.useState([]);
+  const [disabled, setDisabled] = React.useState({});
+  const [openProvider, setOpenProvider] = React.useState("");
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   const load = React.useCallback(() => {
     setError("");
     setConnections(null);
-    Promise.all([api.listProviders(), api.listProviderNodes()])
-      .then(([conns, nodeList]) => {
+    Promise.all([api.listProviders(), api.listProviderNodes(), api.getDisabledModels()])
+      .then(([conns, nodeList, disabledMap]) => {
         setConnections(conns);
         setNodes((nodeList || []).filter((node) => node.type === "custom-embedding"));
+        setDisabled(disabledMap || {});
       })
       .catch((err) => {
         setConnections([]);
@@ -60,6 +63,21 @@ export function MediaProvidersPage({ api }) {
         setError(err.message);
       });
   }, [api]);
+
+  const reloadDisabled = React.useCallback(() => {
+    api
+      .getDisabledModels()
+      .then((map) => setDisabled(map || {}))
+      .catch(() => {});
+  }, [api]);
+
+  const toggleModel = (entry, modelId, isDisabled) => {
+    if (isDisabled) {
+      void Promise.resolve(api.enableModel(entry.alias, modelId)).then(reloadDisabled);
+    } else {
+      void Promise.resolve(api.disableModels(entry.alias, [modelId])).then(reloadDisabled);
+    }
+  };
 
   React.useEffect(() => {
     load();
@@ -186,6 +204,11 @@ export function MediaProvidersPage({ api }) {
                       : errors > 0
                         ? { label: `${errors} error${errors === 1 ? "" : "s"}`, color: theme.bad }
                         : { label: `${conns.length} added`, color: theme.muted };
+              const providerModels = entry.custom
+                ? []
+                : MEDIA_MODELS.filter((model) => model.provider === entry.id && model.kinds.includes(kind));
+              const open = openProvider === entry.id;
+              const disabledIds = disabled[entry.alias] || [];
               return h(
                 "div",
                 {
@@ -193,9 +216,8 @@ export function MediaProvidersPage({ api }) {
                   testId: `media-provider-${entry.id}`,
                   style: {
                     display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
+                    flexDirection: "column",
+                    gap: 4,
                     paddingTop: 6,
                     paddingBottom: 6,
                     borderTopWidth: 1,
@@ -204,30 +226,89 @@ export function MediaProvidersPage({ api }) {
                 },
                 h(
                   "div",
-                  { style: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2 } },
-                  h("text", { style: { color: theme.text, fontSize: 12 } }, entry.name),
+                  { style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 12 } },
                   h(
-                    "text",
-                    { style: { color: theme.muted, fontSize: 10 } },
-                    entry.custom ? "custom embedding node" : entry.kinds.join(" · ")
-                  )
-                ),
-                h("text", { style: { color: status.color, fontSize: 10 } }, status.label),
-                conns.length > 0
-                  ? h(
+                    "div",
+                    { style: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2 } },
+                    h("text", { style: { color: theme.text, fontSize: 12 } }, entry.name),
+                    h(
                       "text",
-                      {
-                        testId: `media-toggle-${entry.id}`,
-                        role: "button",
-                        onClick: busy ? null : () => toggleProvider(entry.id),
-                        style: {
-                          color: busy ? theme.muted : theme.muted,
-                          fontSize: 10,
-                          cursor: busy ? "default" : "pointer",
-                          hover: busy ? {} : { color: theme.text },
+                      { style: { color: theme.muted, fontSize: 10 } },
+                      entry.custom ? "custom embedding node" : entry.kinds.join(" · ")
+                    )
+                  ),
+                  h("text", { style: { color: status.color, fontSize: 10 } }, status.label),
+                  providerModels.length > 0
+                    ? h(
+                        "text",
+                        {
+                          testId: `media-models-${entry.id}`,
+                          role: "button",
+                          onClick: busy ? null : () => setOpenProvider(open ? "" : entry.id),
+                          style: {
+                            color: theme.muted,
+                            fontSize: 10,
+                            cursor: busy ? "default" : "pointer",
+                            hover: busy ? {} : { color: theme.text },
+                          },
                         },
-                      },
-                      allDisabled ? "Enable" : "Disable"
+                        `${open ? "Hide" : "Models"} (${providerModels.length})`
+                      )
+                    : null,
+                  conns.length > 0
+                    ? h(
+                        "text",
+                        {
+                          testId: `media-toggle-${entry.id}`,
+                          role: "button",
+                          onClick: busy ? null : () => toggleProvider(entry.id),
+                          style: {
+                            color: theme.muted,
+                            fontSize: 10,
+                            cursor: busy ? "default" : "pointer",
+                            hover: busy ? {} : { color: theme.text },
+                          },
+                        },
+                        allDisabled ? "Enable" : "Disable"
+                      )
+                    : null
+                ),
+                open
+                  ? h(
+                      "div",
+                      { style: { display: "flex", flexDirection: "column", gap: 2, paddingLeft: 12 } },
+                      ...providerModels.map((model) => {
+                        const isDisabled = disabledIds.includes(model.model);
+                        return h(
+                          "div",
+                          {
+                            key: model.model,
+                            testId: `media-model-${entry.id}-${model.model}`,
+                            style: { display: "flex", flexDirection: "row", alignItems: "center", gap: 10 },
+                          },
+                          h(
+                            "text",
+                            { style: { color: isDisabled ? theme.muted : theme.text, fontSize: 10, fontFamily: "Consolas", minWidth: 170 } },
+                            model.model
+                          ),
+                          h("text", { style: { color: theme.muted, fontSize: 10, flexGrow: 1 } }, model.name),
+                          h(
+                            "text",
+                            {
+                              testId: `media-model-toggle-${entry.id}-${model.model}`,
+                              role: "button",
+                              onClick: busy ? null : () => toggleModel(entry, model.model, isDisabled),
+                              style: {
+                                color: isDisabled ? theme.muted : theme.ok,
+                                fontSize: 10,
+                                cursor: busy ? "default" : "pointer",
+                                hover: busy ? {} : { color: theme.text },
+                              },
+                            },
+                            isDisabled ? "Disabled" : "Enabled"
+                          )
+                        );
+                      })
                     )
                   : null
               );
