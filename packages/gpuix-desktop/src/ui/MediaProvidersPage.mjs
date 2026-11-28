@@ -43,6 +43,7 @@ export function MediaProvidersPage({ api }) {
   const [kind, setKind] = React.useState("image");
   const [connections, setConnections] = React.useState(null);
   const [nodes, setNodes] = React.useState([]);
+  const [customModels, setCustomModels] = React.useState([]);
   const [disabled, setDisabled] = React.useState({});
   const [openProvider, setOpenProvider] = React.useState("");
   const [error, setError] = React.useState("");
@@ -51,15 +52,17 @@ export function MediaProvidersPage({ api }) {
   const load = React.useCallback(() => {
     setError("");
     setConnections(null);
-    Promise.all([api.listProviders(), api.listProviderNodes(), api.getDisabledModels()])
-      .then(([conns, nodeList, disabledMap]) => {
+    Promise.all([api.listProviders(), api.listProviderNodes(), api.getDisabledModels(), api.listCustomModels()])
+      .then(([conns, nodeList, disabledMap, customList]) => {
         setConnections(conns);
         setNodes((nodeList || []).filter((node) => node.type === "custom-embedding"));
         setDisabled(disabledMap || {});
+        setCustomModels(customList || []);
       })
       .catch((err) => {
         setConnections([]);
         setNodes([]);
+        setCustomModels([]);
         setError(err.message);
       });
   }, [api]);
@@ -206,7 +209,22 @@ export function MediaProvidersPage({ api }) {
                         : { label: `${conns.length} added`, color: theme.muted };
               const providerModels = entry.custom
                 ? []
-                : MEDIA_MODELS.filter((model) => model.provider === entry.id && model.kinds.includes(kind));
+                : [
+                    ...MEDIA_MODELS.filter((model) => model.provider === entry.id && model.kinds.includes(kind)),
+                    ...customModels
+                      .filter((model) => {
+                        const modelKind = model.kind || model.type || "llm";
+                        return model.providerAlias === entry.alias && modelKind === kind;
+                      })
+                      .map((model) => ({
+                        provider: entry.id,
+                        alias: entry.alias,
+                        model: model.id,
+                        name: `${model.name || model.id} (custom)`,
+                        kinds: [kind],
+                        custom: true,
+                      })),
+                  ];
               const open = openProvider === entry.id;
               const disabledIds = disabled[entry.alias] || [];
               return h(

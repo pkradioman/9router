@@ -605,6 +605,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("dall-e-3");
     expect(painted).toContain("DALL-E 3");
+    expect(painted).toContain("gpt-image-x (custom)");
     expect(painted).toContain("Disabled");
 
     click(root.renderer, "media-model-toggle-openai-dall-e-3");
