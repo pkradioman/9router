@@ -14,6 +14,14 @@ export function RequestLogPage({ api }) {
   const [error, setError] = React.useState("");
   const [drafts, setDrafts] = React.useState({ provider: "", model: "", status: "", startDate: "", endDate: "" });
   const [filters, setFilters] = React.useState({ provider: "", model: "", status: "", startDate: "", endDate: "" });
+  const [providers, setProviders] = React.useState([]);
+
+  React.useEffect(() => {
+    api
+      .getUsageProviders()
+      .then((list) => setProviders(list || []))
+      .catch(() => setProviders([]));
+  }, [api]);
 
   const load = React.useCallback(() => {
     setError("");
@@ -143,6 +151,56 @@ export function RequestLogPage({ api }) {
         "Clear"
       )
     ),
+    providers.length > 0
+      ? h(
+          "div",
+          { style: { display: "flex", flexDirection: "row", gap: 12, alignItems: "center", flexWrap: "wrap" } },
+          h("text", { style: { color: theme.muted, fontSize: 10 } }, "Providers:"),
+          h(
+            "text",
+            {
+              testId: "request-log-provider-chip-all",
+              role: "button",
+              onClick: () => {
+                const next = { ...drafts, provider: "" };
+                setDrafts(next);
+                setFilters(next);
+                setPage(1);
+              },
+              style: {
+                color: drafts.provider ? theme.muted : theme.ok,
+                fontSize: 10,
+                cursor: "pointer",
+                hover: { color: theme.text },
+              },
+            },
+            "All"
+          ),
+          ...providers.slice(0, 16).map((item) =>
+            h(
+              "text",
+              {
+                key: item.id,
+                testId: `request-log-provider-chip-${item.id}`,
+                role: "button",
+                onClick: () => {
+                  const next = { ...drafts, provider: item.id };
+                  setDrafts(next);
+                  setFilters(next);
+                  setPage(1);
+                },
+                style: {
+                  color: drafts.provider === item.id ? theme.ok : theme.muted,
+                  fontSize: 10,
+                  cursor: "pointer",
+                  hover: { color: theme.text },
+                },
+              },
+              item.name || item.id
+            )
+          )
+        )
+      : null,
     error ? h("text", { testId: "request-log-error", style: { color: theme.bad, fontSize: 12 } }, error) : null,
     h(
       "div",

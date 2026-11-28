@@ -13,15 +13,15 @@ export class ApiError extends Error {
 }
 
 export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, timeoutMs = 8000 }) {
-  async function request(route, { method = "GET", body } = {}) {
-    const headers = {};
+  async function request(route, { method = "GET", body, extraHeaders = null, timeout = null } = {}) {
+    const headers = { ...(extraHeaders || {}) };
     if (token) headers["x-9r-cli-token"] = token;
     if (body !== undefined) headers["content-type"] = "application/json";
     const response = await fetchImpl(`${baseUrl}${route}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(timeout || timeoutMs),
     });
     const text = await response.text();
     let parsed = null;
@@ -31,7 +31,11 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       parsed = null;
     }
     if (!response.ok) {
-      const message = (parsed && parsed.error) || `${method} ${route} failed (${response.status})`;
+      const raw = parsed && parsed.error;
+      const message =
+        (typeof raw === "string" && raw) ||
+        (raw && raw.message) ||
+        `${method} ${route} failed (${response.status})`;
       throw new ApiError(message, response.status, parsed);
     }
     return parsed;
@@ -97,6 +101,10 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       request("/api/models/availability", { method: "POST", body: { action: "clearCooldown", provider, model } }),
     getUsageStats: (period) => request(`/api/usage/stats?period=${encodeURIComponent(period)}`),
     getUsageChart: (period) => request(`/api/usage/chart?period=${encodeURIComponent(period)}`),
+    getUsageProviders: async () => {
+      const body = await request("/api/usage/providers");
+      return (body && body.providers) || [];
+    },
     getRequestDetails: (page = 1, pageSize = 20, filters = {}) => {
       const parts = [`page=${page}`, `pageSize=${pageSize}`];
       for (const key of ["provider", "model", "status", "startDate", "endDate"]) {
@@ -123,6 +131,13 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     patchSettings: (patch) => request("/api/settings", { method: "PATCH", body: patch }),
     testProxyUrl: (proxyUrl) =>
       request("/api/settings/proxy-test", { method: "POST", body: { proxyUrl } }),
+    createChatCompletion: ({ apiKey, model, messages, timeout = 60000 }) =>
+      request("/v1/chat/completions", {
+        method: "POST",
+        body: { model, messages, stream: false },
+        extraHeaders: apiKey ? { authorization: `Bearer ${apiKey}` } : null,
+        timeout,
+      }),
     getPricing: () => request("/api/pricing"),
     patchPricing: (pricing) => request("/api/pricing", { method: "PATCH", body: pricing }),
     resetPricing: (provider = null, model = null) => {

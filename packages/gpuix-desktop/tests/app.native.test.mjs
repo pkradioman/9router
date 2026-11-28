@@ -192,6 +192,13 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
       version: "0.9.1",
       url: "http://127.0.0.1:5757",
     })),
+    getUsageProviders: vi.fn(async () => [
+      { id: "openai", name: "OpenAI" },
+      { id: "anthropic", name: "Anthropic" },
+    ]),
+    createChatCompletion: vi.fn(async ({ model }) => ({
+      choices: [{ message: { role: "assistant", content: `reply from ${model}` } }],
+    })),
     getModelAvailability: vi.fn(async () => ({
       models: cooldowns.map((item) => ({ ...item })),
       unavailableCount: cooldowns.length,
@@ -483,6 +490,32 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "provider-strategy-openai-global");
     await settle(root);
     expect(api.patchSettings).toHaveBeenLastCalledWith({ providerStrategies: {} });
+  });
+
+  it("applies a provider chip in the request log", async () => {
+    const api = createFakeApi();
+    const root = mount(api);
+    await settle(root);
+
+    click(root.renderer, "nav-request-log");
+    await settle(root);
+    expect(root.renderer.getPaintedText().join("\n")).toContain("Providers:");
+
+    click(root.renderer, "request-log-provider-chip-openai");
+    await settle(root);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(
+      1,
+      20,
+      expect.objectContaining({ provider: "openai" })
+    );
+
+    click(root.renderer, "request-log-provider-chip-anthropic");
+    await settle(root);
+    expect(api.getRequestDetails).toHaveBeenLastCalledWith(
+      1,
+      20,
+      expect.objectContaining({ provider: "anthropic" })
+    );
   });
 
   it("lists media providers by kind and toggles their connections", async () => {

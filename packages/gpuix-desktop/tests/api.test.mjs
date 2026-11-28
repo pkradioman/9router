@@ -342,6 +342,41 @@ describe("createGatewayApi", () => {
     expect(JSON.parse(calls[0].init.body)).toEqual({ name: "mix", models: ["openai/gpt-4o"] });
   });
 
+  it("lists usage providers and posts a non-streaming chat completion", async () => {
+    const { calls, fetchImpl } = fakeFetch((url) =>
+      url.endsWith("/api/usage/providers")
+        ? json({ providers: [{ id: "openai", name: "OpenAI" }] })
+        : json({ choices: [{ message: { role: "assistant", content: "hi" } }] })
+    );
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+
+    expect(await api.getUsageProviders()).toEqual([{ id: "openai", name: "OpenAI" }]);
+    expect(calls[0].url).toBe("http://127.0.0.1:20129/api/usage/providers");
+
+    const body = await api.createChatCompletion({
+      apiKey: "sk-test",
+      model: "openai/gpt-4o",
+      messages: [{ role: "user", content: "hello" }],
+    });
+    expect(body.choices[0].message.content).toBe("hi");
+    expect(calls[1].url).toBe("http://127.0.0.1:20129/v1/chat/completions");
+    expect(calls[1].init.headers.authorization).toBe("Bearer sk-test");
+    expect(JSON.parse(calls[1].init.body)).toEqual({
+      model: "openai/gpt-4o",
+      messages: [{ role: "user", content: "hello" }],
+      stream: false,
+    });
+  });
+
+  it("uses a structured gateway error message when the API returns one", async () => {
+    const { fetchImpl } = fakeFetch(() => json({ error: { message: "invalid api key" } }, 401));
+    const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });
+    await expect(api.createChatCompletion({ model: "m", messages: [] })).rejects.toMatchObject({
+      message: "invalid api key",
+      status: 401,
+    });
+  });
+
   it("reads model availability and clears a cooldown", async () => {
     const { calls, fetchImpl } = fakeFetch(() => json({ models: [], unavailableCount: 0 }));
     const api = createGatewayApi({ baseUrl: "http://127.0.0.1:20129", fetchImpl });

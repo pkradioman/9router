@@ -225,6 +225,11 @@ describe.runIf(canRun)("isolated gateway integration", () => {
     expect(Array.isArray(filtered.body.details)).toBe(true);
     expect(filtered.body.pagination.pageSize).toBe(5);
 
+    // Provider chips are fed by the distinct providers in request details.
+    const usedProviders = await call("/api/usage/providers");
+    expect(usedProviders.status).toBe(200);
+    expect(Array.isArray(usedProviders.body.providers)).toBe(true);
+
     // Capacity adapter is a settings-only write; store, read back, restore.
     const capSave = await call("/api/settings", {
       method: "PATCH",
