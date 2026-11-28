@@ -20,10 +20,18 @@ function readyStatus(overrides = {}) {
   };
 }
 
+// One native test window per file: the GPU-backed test renderer opens a real
+// GPUI window and cannot be closed, so re-render the same root instead.
+let sharedRoot = null;
+function mount(node) {
+  if (!sharedRoot) sharedRoot = createTestRoot({ width: 1080, height: 720 });
+  sharedRoot.render(node);
+  return sharedRoot;
+}
+
 describe.skipIf(!hasNativeTestRenderer)("StatusPanel native rendering", () => {
   it("paints the gateway url, version, data dir and port", () => {
-    const { render, renderer } = createTestRoot({ width: 1080, height: 720 });
-    render(h(StatusPanel, { status: readyStatus(), onRefresh: () => {} }));
+    const { renderer } = mount(h(StatusPanel, { status: readyStatus(), onRefresh: () => {} }));
     const painted = renderer.getPaintedText().join("\n");
     expect(painted).toContain("9Router Experimental");
     expect(painted).toContain("http://127.0.0.1:20129");
@@ -33,9 +41,8 @@ describe.skipIf(!hasNativeTestRenderer)("StatusPanel native rendering", () => {
   });
 
   it("shows the failure reason when the gateway is unavailable", () => {
-    const { render, renderer } = createTestRoot();
     const status = readyStatus({ phase: STATUS.degraded, version: null, lastError: "connect ECONNREFUSED" });
-    render(h(StatusPanel, { status, onRefresh: () => {} }));
+    const { renderer } = mount(h(StatusPanel, { status, onRefresh: () => {} }));
     const painted = renderer.getPaintedText().join("\n");
     expect(painted).toContain("Gateway unavailable");
     expect(painted).toContain("ECONNREFUSED");
@@ -43,9 +50,8 @@ describe.skipIf(!hasNativeTestRenderer)("StatusPanel native rendering", () => {
   });
 
   it("calls onRefresh when the refresh control is clicked", () => {
-    const { render, renderer } = createTestRoot();
     let clicks = 0;
-    render(h(StatusPanel, { status: readyStatus(), onRefresh: () => (clicks += 1) }));
+    const { renderer } = mount(h(StatusPanel, { status: readyStatus(), onRefresh: () => (clicks += 1) }));
     const element = renderer.findByTestId("refresh-status");
     expect(element).toBeTruthy();
     const bounds = renderer.getElementBounds(element.id);

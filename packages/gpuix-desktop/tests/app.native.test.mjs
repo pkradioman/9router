@@ -34,6 +34,20 @@ function status(overrides = {}) {
   };
 }
 
+// One native test window per file. TestGpuixRenderer opens a real GPUI window
+// and has no close call, so creating a root per test left a window (and its
+// GPU context) open until the process exited. Re-render with a new key so the
+// previous tree unmounts instead.
+let sharedRoot = null;
+let mountKey = 0;
+function mount(api) {
+  if (!sharedRoot) sharedRoot = createTestRoot({ width: 1200, height: 1800 });
+  mountKey += 1;
+  sharedRoot.render(h(App, { key: mountKey, api, status: status(), onRefresh: () => {} }));
+  return sharedRoot;
+}
+
+
 function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed = []) {
   let keys = initial.map((item) => ({ ...item }));
   let providers = providerSeed.map((item) => ({ ...item }));
@@ -278,8 +292,7 @@ function click(renderer, testId) {
 describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
   it("paints the endpoint rows and existing API keys", async () => {
     const api = createFakeApi([{ id: "k1", name: "laptop", key: "sk-live-1", isActive: true }]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     const painted = root.renderer.getPaintedText().join("\n");
@@ -293,8 +306,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("shows the access policy and tunnel status and toggles require-API-key", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     let painted = root.renderer.getPaintedText().join("\n");
@@ -312,8 +324,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("creates a key from the name field", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     const input = root.renderer.findByTestId("key-name-input");
@@ -336,8 +347,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
       { id: "k1", name: "laptop", key: "sk-live-1", isActive: true },
       { id: "k2", name: "server", key: "sk-live-2", isActive: true },
     ]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "key-toggle-k1");
@@ -355,8 +365,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     const api = createFakeApi([
       { id: "k1", name: "laptop", key: "sk-live-1", isActive: true, access: { restricted: false, allow: [] } },
     ]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "key-access-k1");
@@ -374,8 +383,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
   it("shows the gateway error inline when the key list fails", async () => {
     const api = createFakeApi();
     api.listKeys.mockRejectedValueOnce(new Error("Unauthorized"));
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     expect(root.renderer.getPaintedText().join("\n")).toContain("Unauthorized");
@@ -383,8 +391,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("switches to the gateway status page from the sidebar", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-status");
@@ -400,8 +407,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
       { id: "p1", name: "Work OpenAI", provider: "openai", authType: "apikey", isActive: true },
       { id: "p2", name: "Claude", provider: "anthropic", authType: "oauth", isActive: false },
     ]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-providers");
@@ -432,8 +438,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
         providerSpecificData: { proxyPoolId: "pp9" },
       },
     ]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-providers");
@@ -464,8 +469,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
       { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },
       { id: "p2", name: "Backup", provider: "openai", authType: "apikey", isActive: true },
     ]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-providers");
@@ -481,13 +485,52 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.patchSettings).toHaveBeenLastCalledWith({ providerStrategies: {} });
   });
 
+  it("lists media providers by kind and toggles their connections", async () => {
+    const api = createFakeApi([], [
+      { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },
+      { id: "p2", name: "Backup", provider: "openai", authType: "apikey", isActive: true },
+    ]);
+    await api.createProviderNode({
+      name: "Local Emb",
+      prefix: "le",
+      baseUrl: "http://127.0.0.1:9/v1",
+      type: "custom-embedding",
+    });
+    const root = mount(api);
+    await settle(root);
+
+    click(root.renderer, "nav-media-providers");
+    await settle(root);
+    let painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Media providers");
+    expect(painted).toContain("Text to Image");
+    expect(painted).toContain("OpenAI");
+    expect(painted).toContain("2 connected");
+    expect(painted).toContain("Disable");
+
+    click(root.renderer, "media-toggle-openai");
+    await settle(root);
+    expect(api.updateProvider).toHaveBeenCalledWith("p1", { isActive: false });
+    expect(api.updateProvider).toHaveBeenCalledWith("p2", { isActive: false });
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Disabled");
+    expect(painted).toContain("Enable");
+
+    click(root.renderer, "media-kind-embedding");
+    await settle(root);
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).toContain("Embedding");
+    expect(painted).toContain("Local Emb");
+    expect(painted).toContain("custom embedding node");
+    expect(painted).toContain("No connections");
+  });
+
   it("lists model cooldowns and clears one", async () => {
     const api = createFakeApi([], [
       { id: "p1", name: "Work", provider: "openai", authType: "apikey", isActive: true },
       { id: "p2", name: "Backup", provider: "anthropic", authType: "apikey", isActive: true },
     ]);
-    const root = createTestRoot({ width: 1080, height: 1400 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-providers");
@@ -509,8 +552,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("edits one model's pricing and resets it", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-pricing");
@@ -559,8 +601,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
       { id: "p1", name: "Good", provider: "openai", authType: "apikey", isActive: true },
       { id: "p2", name: "Bad", provider: "openai", authType: "apikey", isActive: true },
     ]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-providers");
@@ -578,8 +619,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("adds an API-key provider connection and deletes it", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-providers");
@@ -609,8 +649,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("shows usage totals and switches the period", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-usage");
@@ -636,8 +675,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("lists routed models and toggles, enables all and deletes a custom model", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-models");
@@ -684,8 +722,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("lists, creates and deletes combos", async () => {
     const api = createFakeApi([], [], [{ id: "c0", name: "fast-first", kind: null, models: [{}, {}] }]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-combos");
@@ -714,8 +751,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("edits a combo's ordered models", async () => {
     const api = createFakeApi([], [], [{ id: "c1", name: "mix", kind: null, models: ["openai/gpt-4o"] }]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-combos");
@@ -745,8 +781,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("sets a combo strategy and its fusion judge", async () => {
     const api = createFakeApi([], [], [{ id: "c1", name: "mix", kind: null, models: ["openai/gpt-4o"] }]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-combos");
@@ -786,8 +821,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("previews and creates combo presets", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-combos");
@@ -809,8 +843,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("edits the capacity adapter fallbacks", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-combos");
@@ -851,8 +884,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     api.getConsoleLogs
       .mockResolvedValueOnce(["[INFO] gateway booted", "[ERROR] upstream refused"])
       .mockResolvedValue([]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-console-log");
@@ -870,8 +902,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("shows saver savings and patches the switches", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-token-saver");
@@ -903,8 +934,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     const api = createFakeApi([], [], [], [
       { id: "pp1", name: "home", proxyUrl: "http://10.0.0.2:8080", type: "http", isActive: true, boundConnectionCount: 2 },
     ]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-proxy-pools");
@@ -931,8 +961,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     const api = createFakeApi([], [], [], [
       { id: "pp1", name: "home", proxyUrl: "http://10.0.0.2:8080", type: "http", isActive: true },
     ]);
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-proxy-pools");
@@ -961,8 +990,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("shows CLI tool connection status", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-cli-tools");
@@ -979,8 +1007,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("creates and deletes a custom provider node", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-providers");
@@ -1035,8 +1062,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("creates anthropic-compatible and embedding nodes", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 1200 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-providers");
@@ -1083,8 +1109,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("shows the agent skills list with raw URLs", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-skills");
@@ -1098,8 +1123,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("shows profile settings and patches the safe toggles", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-profile");
@@ -1122,8 +1146,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("saves and tests the outbound proxy", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-profile");
@@ -1155,8 +1178,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("changes the dashboard password and rejects a mismatch", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-profile");
@@ -1189,8 +1211,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("loads translator step files read-only", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-translator");
@@ -1209,8 +1230,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("pages through the request log", async () => {
     const api = createFakeApi();
-    const root = createTestRoot({ width: 1080, height: 720 });
-    root.render(h(App, { api, status: status(), onRefresh: () => {} }));
+    const root = mount(api);
     await settle(root);
 
     click(root.renderer, "nav-request-log");
