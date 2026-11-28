@@ -767,6 +767,11 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.deleteProvider).toHaveBeenCalledWith("p1");
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("No provider connections yet.");
+
+    await typeInto("provider-id-input", "o l l a m a - l o c a l");
+    click(root.renderer, "provider-create");
+    await settle(root);
+    expect(api.createProvider).toHaveBeenLastCalledWith({ provider: "ollama-local", apiKey: "", name: undefined });
   });
 
   it("shows usage totals and switches the period", async () => {

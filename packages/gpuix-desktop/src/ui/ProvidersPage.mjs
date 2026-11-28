@@ -348,7 +348,9 @@ export function ProvidersPage({ api }) {
   };
 
   const create = () => {
-    if (!providerId.trim() || !apiKey.trim()) {
+    // The gateway exempts ollama-local from the API-key requirement.
+    const keyOptional = providerId.trim() === "ollama-local";
+    if (!providerId.trim() || (!apiKey.trim() && !keyOptional)) {
       setError("Enter a provider ID and an API key.");
       return;
     }
@@ -369,7 +371,8 @@ export function ProvidersPage({ api }) {
   // Key check against the provider before creating the connection; one real
   // request with the entered key, same as the dashboard's add dialog.
   const validateDraft = () => {
-    if (!providerId.trim() || !apiKey.trim()) {
+    const keyOptional = providerId.trim() === "ollama-local";
+    if (!providerId.trim() || (!apiKey.trim() && !keyOptional)) {
       setError("Enter a provider ID and an API key first.");
       return;
     }
