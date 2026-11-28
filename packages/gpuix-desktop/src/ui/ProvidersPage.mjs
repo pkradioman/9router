@@ -70,6 +70,13 @@ function ProviderRow({ item, onToggle, onDelete, onUpdate, onTest, busy }) {
             item.email,
             item.defaultModel,
             item.providerSpecificData?.proxyPoolId ? `proxy ${item.providerSpecificData.proxyPoolId}` : null,
+            (() => {
+              const expires = item.expiresAt || item.tokenExpiresAt;
+              if (!expires) return null;
+              const at = new Date(expires);
+              if (Number.isNaN(at.getTime())) return null;
+              return `expires ${at.toISOString().slice(0, 10)}`;
+            })(),
           ]
             .filter(Boolean)
             .join(" · ")

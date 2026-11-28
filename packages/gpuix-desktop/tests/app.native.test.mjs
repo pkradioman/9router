@@ -445,7 +445,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
 
   it("lists provider connections and toggles one from the sidebar page", async () => {
     const api = createFakeApi([], [
-      { id: "p1", name: "Work OpenAI", provider: "openai", authType: "apikey", isActive: true },
+      { id: "p1", name: "Work OpenAI", provider: "openai", authType: "apikey", isActive: true, tokenExpiresAt: "2026-12-01T00:00:00.000Z" },
       { id: "p2", name: "Claude", provider: "anthropic", authType: "oauth", isActive: false },
     ]);
     const root = mount(api);
@@ -456,6 +456,7 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     let painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("Work OpenAI");
     expect(painted).toContain("anthropic · oauth");
+    expect(painted).toContain("expires 2026-12-01");
     expect(painted).toContain("Disabled");
 
     click(root.renderer, "provider-toggle-p1");
