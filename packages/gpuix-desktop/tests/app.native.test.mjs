@@ -1444,6 +1444,10 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(api.patchSettings).toHaveBeenLastCalledWith({ tunnelDashboardAccess: true });
     painted = root.renderer.getPaintedText().join("\n");
     expect(painted).toContain("Enabled");
+
+    click(root.renderer, "profile-observability");
+    await settle(root);
+    expect(api.patchSettings).toHaveBeenLastCalledWith({ enableObservability: true });
   });
 
   it("saves and tests the outbound proxy", async () => {

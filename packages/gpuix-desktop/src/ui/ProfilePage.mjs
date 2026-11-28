@@ -193,6 +193,13 @@ export function ProfilePage({ api, status }) {
               onToggle: (value) => patch({ tunnelDashboardAccess: value }),
               testId: "profile-tunnel-access",
             }),
+            h(Toggle, {
+              label: "Request observability",
+              hint: "Keep the request log and console details available in the dashboard.",
+              value: settings.enableObservability === true,
+              onToggle: (value) => patch({ enableObservability: value }),
+              testId: "profile-observability",
+            }),
             h(
               "div",
               {
