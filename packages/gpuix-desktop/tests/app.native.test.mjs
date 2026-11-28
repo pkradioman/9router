@@ -662,10 +662,12 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     expect(painted).toContain("Disable");
     expect(painted).toContain("POST http://127.0.0.1:20129/v1/images/generations");
     expect(painted).toContain("Authorization: Bearer <api-key>");
+    expect(painted).toContain("A cute cat playing piano");
 
     click(root.renderer, "media-kind-tts");
     await settle(root);
     expect(root.renderer.getPaintedText().join("\n")).toContain("POST http://127.0.0.1:20129/v1/audio/speech");
+    expect(root.renderer.getPaintedText().join("\n")).toContain('"voice":"alloy"');
     click(root.renderer, "media-kind-image");
     await settle(root);
 

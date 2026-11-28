@@ -24,6 +24,14 @@ export const MEDIA_KINDS = [
   { id: "systemone", label: "System One", endpoint: "/v1/systemone" },
 ];
 
+// Same example bodies as the dashboard combo page (EXAMPLE_BODIES).
+export const EXAMPLE_BODIES = {
+  webSearch: '{"model":"<model>","query":"What is the latest news about AI?","search_type":"web","max_results":5}',
+  webFetch: '{"model":"<model>","url":"https://example.com","format":"markdown"}',
+  image: '{"model":"<model>","prompt":"A cute cat playing piano","n":1,"size":"1024x1024"}',
+  tts: '{"model":"<model>","input":"Hello, this is a test.","voice":"alloy"}',
+};
+
 export function providersForKind(kind) {
   return MEDIA_PROVIDERS.filter(
     (entry) => entry.kinds.includes(kind) && !(entry.hiddenKinds || []).includes(kind)
@@ -661,7 +669,7 @@ export function MediaProvidersPage({ api, status }) {
           `curl -X POST "${exampleUrl}" \\`,
           '  -H "Authorization: Bearer <api-key>" \\',
           '  -H "Content-Type: application/json" \\',
-          `  -d '{"model":"<model>","input":"<prompt>"}'`,
+          `  -d '${EXAMPLE_BODIES[kind] || '{"model":"<model>","input":"<prompt>"}'}'`,
         ];
       })().map((line, index) =>
         h(
