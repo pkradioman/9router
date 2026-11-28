@@ -123,7 +123,10 @@ function createFakeApi(initial = [], providerSeed = [], comboSeed = [], poolSeed
     disableModels: vi.fn(async () => ({ success: true })),
     enableModel: vi.fn(async () => ({ success: true })),
     enableAllModels: vi.fn(async () => ({ success: true })),
-    listCustomModels: vi.fn(async () => [{ providerAlias: "openai", id: "my-model", kind: "llm" }]),
+    listCustomModels: vi.fn(async () => [
+      { providerAlias: "openai", id: "my-model", kind: "llm" },
+      { providerAlias: "openai", id: "gpt-image-x", kind: "image" },
+    ]),
     addCustomModel: vi.fn(async () => ({ success: true })),
     deleteCustomModel: vi.fn(async () => ({ success: true })),
     setModelAlias: vi.fn(async () => ({ success: true })),
@@ -788,6 +791,27 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "model-delete-openai/my-model");
     await settle(root);
     expect(api.deleteCustomModel).toHaveBeenCalledWith("openai", "my-model");
+
+    expect(painted).toContain("Custom media models (1)");
+    expect(painted).toContain("gpt-image-x");
+    click(root.renderer, "custom-media-delete-gpt-image-x");
+    await settle(root);
+    expect(api.deleteCustomModel).toHaveBeenLastCalledWith("openai", "gpt-image-x", "image");
+
+    click(root.renderer, "custom-model-kind-image");
+    await settle(root);
+    const kindInput = async (testId, keys) => {
+      const element = root.renderer.findByTestId(testId);
+      const bounds = root.renderer.getElementBounds(element.id);
+      root.renderer.nativeSimulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      root.renderer.nativeSimulateKeystrokes(element.id, keys);
+      await settle(root);
+    };
+    await kindInput("custom-model-alias-input", "i m g x");
+    await kindInput("custom-model-id-input", "f l u x - a");
+    click(root.renderer, "custom-model-add");
+    await settle(root);
+    expect(api.addCustomModel).toHaveBeenCalledWith({ providerAlias: "imgx", id: "flux-a", type: "image" });
 
     click(root.renderer, "model-test-openai/gpt-4o");
     await settle(root);

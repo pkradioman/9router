@@ -169,6 +169,7 @@ export function ModelsPage({ api }) {
   const [busy, setBusy] = React.useState(false);
   const [newAlias, setNewAlias] = React.useState("");
   const [newId, setNewId] = React.useState("");
+  const [newKind, setNewKind] = React.useState("llm");
 
   const load = React.useCallback(() => {
     setError("");
@@ -217,7 +218,7 @@ export function ModelsPage({ api }) {
       return;
     }
     run(() =>
-      api.addCustomModel({ providerAlias: newAlias.trim(), id: newId.trim(), type: "llm" }).then(() => {
+      api.addCustomModel({ providerAlias: newAlias.trim(), id: newId.trim(), type: newKind }).then(() => {
         setNewAlias("");
         setNewId("");
       })
@@ -237,6 +238,7 @@ export function ModelsPage({ api }) {
   }, [models]);
 
   const customKeys = new Set(custom.map((item) => `${item.providerAlias}/${item.id}`));
+  const mediaCustom = custom.filter((item) => (item.kind || item.type || "llm") !== "llm");
 
   const inputStyle = { width: 160, height: 28, color: theme.text, backgroundColor: theme.panelAlt };
   const button = (testId, label, onClick, color) =>
@@ -290,6 +292,29 @@ export function ModelsPage({ api }) {
         },
       },
       h("text", { style: { color: theme.text, fontSize: 14, fontWeight: 600 } }, "Routed models"),
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "row", gap: 12, alignItems: "center", flexWrap: "wrap" } },
+        h("text", { style: { color: theme.muted, fontSize: 10 } }, "Kind:"),
+        ...["llm", "embedding", "image", "imageToText", "tts", "stt", "video", "webSearch", "webFetch"].map((kind) =>
+          h(
+            "text",
+            {
+              key: kind,
+              testId: `custom-model-kind-${kind}`,
+              role: "button",
+              onClick: busy ? null : () => setNewKind(kind),
+              style: {
+                color: newKind === kind ? theme.ok : theme.muted,
+                fontSize: 10,
+                cursor: busy ? "default" : "pointer",
+                hover: busy ? {} : { color: theme.text },
+              },
+            },
+            kind
+          )
+        )
+      ),
       h(
         "div",
         { style: { display: "flex", flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" } },
@@ -367,6 +392,69 @@ export function ModelsPage({ api }) {
         { style: { color: theme.muted, fontSize: 11 } },
         "Test sends one real request to the configured provider. Catalog sync stays on the dashboard."
       )
+    ),
+    h(
+      "div",
+      {
+        testId: "custom-media-section",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: theme.panel,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 10,
+          padding: 16,
+          gap: 8,
+        },
+      },
+      h(
+        "text",
+        { style: { color: theme.text, fontSize: 14, fontWeight: 600 } },
+        `Custom media models (${mediaCustom.length})`
+      ),
+      mediaCustom.length === 0
+        ? h(
+            "text",
+            { testId: "custom-media-empty", style: { color: theme.muted, fontSize: 11 } },
+            "None yet — pick a media kind above, then add one."
+          )
+        : mediaCustom.map((item) => {
+            const kind = item.kind || item.type;
+            return h(
+              "div",
+              {
+                key: `${item.providerAlias}/${item.id}/${kind}`,
+                testId: `custom-media-row-${item.id}`,
+                style: {
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  paddingTop: 4,
+                  paddingBottom: 4,
+                  borderTopWidth: 1,
+                  borderColor: theme.border,
+                },
+              },
+              h(
+                "text",
+                { style: { color: theme.text, fontSize: 11, fontFamily: "Consolas", flexGrow: 1 } },
+                `${item.providerAlias}/${item.id}`
+              ),
+              h("text", { style: { color: theme.muted, fontSize: 10 } }, kind),
+              h(
+                "text",
+                {
+                  testId: `custom-media-delete-${item.id}`,
+                  role: "button",
+                  onClick: busy ? null : () => run(() => api.deleteCustomModel(item.providerAlias, item.id, kind)),
+                  style: { color: theme.bad, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: "#ff9c9c" } },
+                },
+                "Delete"
+              )
+            );
+          })
     )
   );
 }

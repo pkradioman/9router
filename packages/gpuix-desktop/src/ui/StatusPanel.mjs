@@ -88,6 +88,14 @@ export function StatusPanel({ status, onRefresh }) {
       h(Row, { label: "App version", value: status.version || "unknown", testId: "app-version" }),
       h(Row, { label: "Data directory", value: status.dataDir, testId: "data-dir" }),
       h(Row, { label: "Gateway runtime", value: status.runtimeDir, testId: "runtime-dir" }),
+      status.hasUpdate && status.latestVersion
+        ? h(Row, {
+            label: "Update",
+            value: `v${status.latestVersion} available — install from the dashboard`,
+            color: theme.warn,
+            testId: "update-available",
+          })
+        : null,
       status.lastError ? h(Row, { label: "Last error", value: status.lastError, color: theme.bad, testId: "last-error" }) : null
     ),
     h(

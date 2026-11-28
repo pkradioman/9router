@@ -49,6 +49,13 @@ describe.skipIf(!hasNativeTestRenderer)("StatusPanel native rendering", () => {
     expect(painted).toContain("degraded");
   });
 
+  it("shows an available update", () => {
+    const status = readyStatus({ hasUpdate: true, latestVersion: "0.6.0" });
+    const { renderer } = mount(h(StatusPanel, { status, onRefresh: () => {} }));
+    const painted = renderer.getPaintedText().join("\n");
+    expect(painted).toContain("v0.6.0 available");
+  });
+
   it("calls onRefresh when the refresh control is clicked", () => {
     let clicks = 0;
     const { renderer } = mount(h(StatusPanel, { status: readyStatus(), onRefresh: () => (clicks += 1) }));
