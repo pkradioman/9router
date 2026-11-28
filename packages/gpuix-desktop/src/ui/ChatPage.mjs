@@ -56,6 +56,15 @@ export function ChatPage({ api }) {
     load();
   }, [load]);
 
+  // Abort an in-flight stream when the page unmounts so it cannot set state
+  // on an unmounted tree or keep the request alive in the background.
+  React.useEffect(
+    () => () => {
+      if (abortRef.current) abortRef.current.abort();
+    },
+    []
+  );
+
   const matchingModels = React.useMemo(() => {
     const query = modelFilter.trim().toLowerCase();
     const list = models || [];

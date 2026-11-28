@@ -49,7 +49,11 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
     if (token) headers["x-9r-cli-token"] = token;
     if (body !== undefined) headers["content-type"] = "application/json";
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new Error("request timed out")), timeout);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort(new Error("request timed out"));
+    }, timeout);
     const forwardAbort = () => controller.abort(signal.reason);
     if (signal) {
       if (signal.aborted) controller.abort(signal.reason);
@@ -79,26 +83,45 @@ export function createGatewayApi({ baseUrl, token = null, fetchImpl = fetch, tim
       }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let newline;
-        while ((newline = buffer.indexOf("\n")) >= 0) {
-          const line = buffer.slice(0, newline).trim();
-          buffer = buffer.slice(newline + 1);
-          if (!line.startsWith("data:")) continue;
-          const data = line.slice(5).trim();
-          if (data === "[DONE]") return;
-          let event = null;
-          try {
-            event = JSON.parse(data);
-          } catch {
-            continue;
-          }
-          if (onEvent) onEvent(event);
+      const consume = (line) => {
+        if (!line.startsWith("data:")) return false;
+        const data = line.slice(5).trim();
+        if (data === "[DONE]") return true;
+        let event = null;
+        try {
+          event = JSON.parse(data);
+        } catch {
+          return false;
         }
+        if (event && event.error) {
+          const raw = event.error;
+          const message = (typeof raw === "string" && raw) || (raw && raw.message) || "provider stream error";
+          throw new ApiError(message, response.status, event);
+        }
+        if (onEvent) onEvent(event);
+        return false;
+      };
+      let buffer = "";
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let newline;
+          while ((newline = buffer.indexOf("\n")) >= 0) {
+            const line = buffer.slice(0, newline).trim();
+            buffer = buffer.slice(newline + 1);
+            if (consume(line)) return;
+          }
+        }
+        // A stream may end without a trailing newline; flush the last event.
+        const tail = buffer.trim();
+        if (tail) consume(tail);
+      } catch (error) {
+        if (timedOut && !(signal && signal.aborted)) {
+          throw new ApiError(`stream timed out after ${timeout} ms`, 0);
+        }
+        throw error;
       }
     } finally {
       clearTimeout(timer);

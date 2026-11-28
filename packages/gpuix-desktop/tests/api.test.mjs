@@ -426,6 +426,37 @@ describe("createGatewayApi", () => {
     });
   });
 
+  it("rejects an error frame in the middle of a stream and flushes a tail without newline", async () => {
+    const encoder = new TextEncoder();
+    const mk = (chunks) => ({
+      ok: true,
+      status: 200,
+      body: new ReadableStream({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+          controller.close();
+        },
+      }),
+    });
+    const deltas = [];
+    const api = createGatewayApi({
+      baseUrl: "http://127.0.0.1:20129",
+      fetchImpl: async () => mk(['data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: {"error":{"message":"upstream reset"}}\n\n']),
+    });
+    await expect(
+      api.streamChatCompletion({ model: "m", messages: [], onDelta: (delta) => deltas.push(delta) })
+    ).rejects.toMatchObject({ name: "ApiError", message: "upstream reset" });
+    expect(deltas).toEqual(["ok"]);
+
+    const tailApi = createGatewayApi({
+      baseUrl: "http://127.0.0.1:20129",
+      fetchImpl: async () => mk(['data: {"choices":[{"delta":{"content":"tail"}}]}']),
+    });
+    const tail = [];
+    await tailApi.streamChatCompletion({ model: "m", messages: [], onDelta: (delta) => tail.push(delta) });
+    expect(tail).toEqual(["tail"]);
+  });
+
   it("throws the gateway message for a failed stream", async () => {
     const { fetchImpl } = fakeFetch(() => ({
       ok: false,
