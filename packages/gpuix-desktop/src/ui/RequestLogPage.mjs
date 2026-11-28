@@ -49,6 +49,7 @@ export function RequestLogPage({ api }) {
   const load = React.useCallback(() => {
     setError("");
     setResult(null);
+    setOpenRow(-1);
     api
       .getRequestDetails(page, PAGE_SIZE, filters)
       .then(setResult)

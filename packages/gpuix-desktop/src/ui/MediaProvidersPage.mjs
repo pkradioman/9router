@@ -150,6 +150,14 @@ export function MediaProvidersPage({ api, status }) {
       .catch((err) => setError(err.message))
       .finally(() => setBusy(false));
   };
+  const deleteComboRow = (id) => {
+    setBusy(true);
+    setError("");
+    Promise.resolve(api.deleteCombo(id))
+      .then(load)
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+  };
   const kindCombos = combos.filter((combo) => combo.kind === kind);
 
   const base = providersForKind(kind);
@@ -484,13 +492,23 @@ export function MediaProvidersPage({ api, status }) {
                     style: { display: "flex", flexDirection: "row", gap: 10, paddingTop: 3, paddingBottom: 3 },
                   },
                   h("text", { style: { color: theme.text, fontSize: 11, flexGrow: 1 } }, combo.name),
-                  h("text", { style: { color: theme.muted, fontSize: 10 } }, `${(combo.models || []).length} models`)
+                  h("text", { style: { color: theme.muted, fontSize: 10 } }, `${(combo.models || []).length} models`),
+                  h(
+                    "text",
+                    {
+                      testId: `media-combo-delete-${combo.id}`,
+                      role: "button",
+                      onClick: busy ? null : () => deleteComboRow(combo.id),
+                      style: { color: theme.bad, fontSize: 10, cursor: busy ? "default" : "pointer", hover: busy ? {} : { color: theme.text } },
+                    },
+                    "Delete"
+                  )
                 )
               ),
           h(
             "text",
             { style: { color: theme.muted, fontSize: 10 } },
-            "Editing a media combo stays on the dashboard."
+            "Adding or reordering media combo models stays on the dashboard."
           )
         )
       : null,

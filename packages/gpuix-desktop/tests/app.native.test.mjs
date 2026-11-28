@@ -717,6 +717,12 @@ describe.skipIf(!hasNativeTestRenderer)("native app shell", () => {
     click(root.renderer, "media-create-combo");
     await settle(root);
     expect(api.createCombo).toHaveBeenCalledWith("search-combo-1", "webSearch");
+
+    click(root.renderer, "media-combo-delete-c9");
+    await settle(root);
+    expect(api.deleteCombo).toHaveBeenCalledWith("c9");
+    painted = root.renderer.getPaintedText().join("\n");
+    expect(painted).not.toContain("3 models");
   });
 
   it("loads provider quota on demand and shows failures inline", async () => {
